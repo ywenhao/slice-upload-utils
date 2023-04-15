@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getFileChunk } from '../../../src/utils/chunk'
+import { getFileChunk, sliceDownload } from '../../../src'
 
 async function handleUploadFile(e: Event) {
   const file = (e.target as HTMLInputElement).files![0]
@@ -16,6 +16,8 @@ async function handleUploadFile(e: Event) {
   const fileChunks = res.map(v => v.fileChunks).reduce((pre, cur, index) => [...pre, ...(index ? cur.map(v => ({ ...v, index: v.index + pre.length })) : cur)], [])
   console.log({ file, fileChunks })
   console.timeEnd('chunk')
+
+  sliceDownload(fileChunks.map(v => v.chunk), file.name, file.type)
 }
 </script>
 
