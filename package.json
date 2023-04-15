@@ -58,6 +58,9 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "spark-md5": "^3.0.2"
+  },
   "devDependencies": {
     "@antfu/eslint-config": "^0.38.4",
     "@types/spark-md5": "^3.0.2",
@@ -78,8 +81,5 @@
   },
   "lint-staged": {
     "*": "eslint --fix"
-  },
-  "dependencies": {
-    "spark-md5": "^3.0.2"
   }
 }
