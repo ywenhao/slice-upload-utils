@@ -1,2 +1,2 @@
-export const one = 1
-export const two = 2
+export { getFileChunk } from './utils/chunk'
+export type * from './utils/type'
