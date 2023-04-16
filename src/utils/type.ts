@@ -16,6 +16,6 @@ export interface FileChunkResult {
 export interface SliceUploadOptions {
   file: File
   chunkSize?: number
-  retryCount?: number
+  requestCount?: number
   retryDelay?: number
 }
