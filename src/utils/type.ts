@@ -1,6 +1,6 @@
 export interface FileChunkParams {
-  chunkSize: number
   file: File
+  chunkSize: number
 }
 
 export interface FileChunk {
@@ -10,6 +10,12 @@ export interface FileChunk {
 
 export interface FileChunkResult {
   hash: string
-  fileName: string
   fileChunks: FileChunk[]
+}
+
+export interface SliceUploadOptions {
+  file: File
+  chunkSize?: number
+  retryCount?: number
+  retryDelay?: number
 }

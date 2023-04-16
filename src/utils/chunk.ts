@@ -1,11 +1,11 @@
 import type { FileChunkParams, FileChunkResult } from './type'
 
 /**
- *  获取文件切片
- * @param params
+ * 获取文件切片
+ * @param param0
  * @returns
  */
-export function getFileChunk(params: FileChunkParams): Promise<FileChunkResult> {
+export async function getFileChunk(params: FileChunkParams): Promise<FileChunkResult> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./chunk.worker.ts', import.meta.url), {
       type: 'module',

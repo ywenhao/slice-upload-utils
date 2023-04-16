@@ -3,11 +3,12 @@ import type { FileChunk, FileChunkParams } from './type'
 
 self.onmessage = (e) => {
   const { chunkSize, file } = e.data as FileChunkParams
+
   const spark = new SparkMD5.ArrayBuffer()
   const chunks = Math.ceil(file.size / chunkSize)
   const fileChunks: FileChunk[] = []
 
-  async function getHash() {
+  async function getFileChunk() {
     for (let index = 0; index < chunks; index++) {
       const start = index * chunkSize
       const end = start + chunkSize >= file.size ? file.size : start + chunkSize
@@ -17,9 +18,9 @@ self.onmessage = (e) => {
     }
 
     const hash = spark.end()
-    self.postMessage({ fileChunks, hash, fileName: file.name })
+    self.postMessage({ fileChunks, hash })
     self.close()
   }
 
-  getHash()
+  getFileChunk()
 }
