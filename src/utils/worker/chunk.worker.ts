@@ -28,20 +28,20 @@ self.onmessage = (e) => {
         preHashSpark.append(arrayBuffer)
 
       // 计算分片hash
-      let chunkHash: string
+      let chunkHash = ''
       if (chunkRealHash && chunkSpark) {
         chunkSpark.append(arrayBuffer)
         chunkHash = chunkSpark.end()
-      }
-      else {
-        chunkHash = ''
       }
 
       fileChunks.push({ chunk, index, chunkHash })
     }
 
     const preHash = hash || preHashSpark.end()
-    fileChunks = fileChunks.map((v, index) => ({ ...v, chunkHash: v.chunkHash || SparkMD5.hash(`${hash}_${chunkSize}_${index}`) }))
+
+    // 计算分片hash
+    if (!chunkRealHash)
+      fileChunks = fileChunks.map((v, index) => ({ ...v, chunkHash: SparkMD5.hash(`${hash}_${chunkSize}_${index}`) }))
 
     self.postMessage({ fileChunks, preHash })
     self.close()
