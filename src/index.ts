@@ -1,4 +1,5 @@
-export { getFileChunk } from './utils/chunk'
-export { sliceDownload } from './download'
+export { getFileChunkWorker } from './utils/chunk'
+export { getPreHash } from './utils/preHash'
+export { mergeFile } from './download'
 
-export type * from './utils/type'
+export type * from './types'

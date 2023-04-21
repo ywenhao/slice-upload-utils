@@ -1,21 +1,12 @@
-import type { FileChunkParams, FileChunkResult } from './type'
+import type { FileChunkParams, FileChunkResult } from '../types'
+import { createWorkPromise } from './worker/createWorkPromise'
 
 /**
- * 获取文件切片
+ * 获取文件分片
  * @param param0
  * @returns
  */
-export async function getFileChunk(params: FileChunkParams): Promise<FileChunkResult> {
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./chunk.worker.ts', import.meta.url), {
-      type: 'module',
-    })
-    worker.onmessage = (event) => {
-      resolve(event.data)
-    }
-    worker.onerror = (event) => {
-      reject(event)
-    }
-    worker.postMessage(params)
-  })
+export async function getFileChunkWorker(params: FileChunkParams): Promise<FileChunkResult> {
+  const workURL = new URL('./worker/chunk.worker.ts', import.meta.url)
+  return createWorkPromise<FileChunkParams, FileChunkResult>(workURL, params)
 }

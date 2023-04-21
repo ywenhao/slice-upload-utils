@@ -10,26 +10,50 @@ export interface RequestOptions {
   timeout?: number
 }
 
+/**
+ * 分片上传
+ */
 export class SliceUpload {
-  private file: File
+  private file: File | null
   private chunkSize: number
-  private requestCount: number
+  private retryCount: number
   private retryDelay: number
-
-  private requestInstance: IAjax = () => Promise.resolve(true)
-
   private requestList: Promise<any>[] = []
 
+  private uploadRequestInstance: IAjax = () => Promise.resolve(true)
+  private preVerifyRequestInstance: null | IAjax = () => Promise.resolve(true)
+
   constructor(options: SliceUploadOptions) {
-    const { file, chunkSize = 1024 ** 2 * 2, requestCount = 3, retryDelay = 300 } = options
-    this.file = file
+    this.file = null
+
+    const {
+      retryCount = 3,
+      retryDelay = 300,
+      chunkSize = 1024 ** 2 * 2,
+    } = options
+
     this.chunkSize = chunkSize
-    this.requestCount = requestCount
+    this.retryCount = retryCount
     this.retryDelay = retryDelay
   }
 
-  async setAxios(request: IAjax) {
-    this.requestInstance = request
+  /**
+   * 设置上传文件(单个)
+   * @param file
+   * @returns
+   */
+  setFile(file: File) {
+    this.file = file
+    return this
+  }
+
+  /**
+   * 设置上传请求函数
+   * @param request
+   * @returns
+   */
+  async setUploadRequest(request: IAjax) {
+    this.uploadRequestInstance = request
     return this
   }
 
@@ -37,7 +61,28 @@ export class SliceUpload {
     const { url, method, headers = {}, data, timeout = 30000 } = options
   }
 
-  start() {}
+  /**
+   * 设置上传前验证函数
+   * @param request
+   * @returns
+   */
+  setPreVerifyRequest(request: IAjax) {
+    return this
+  }
 
-  cancel() {}
+  /**
+   * 开始上传
+   * @returns
+   */
+  start() {
+    if (!this.file)
+      throw new Error('请先设置上传文件')
+    if (!this.uploadRequestInstance)
+      throw new Error('请先设置上传请求函数')
+    return this
+  }
+
+  cancel() {
+    return this
+  }
 }
