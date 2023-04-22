@@ -8,7 +8,7 @@ async function handleUploadFile(e: Event) {
   uploadUtils
     .setFile(file)
     .start()
-
+  console.log('uploadUtils', uploadUtils)
   // mergeFile(res.fileChunks.map(v => v.chunk), file.name, file.type)
 }
 </script>

@@ -1,5 +1,7 @@
-export { mergeFile } from './download'
-export { SliceUpload, defineSliceUpload } from './upload'
-
+export * from './download'
+export * from './upload'
 export * from './utils'
+
+export * from './vueHooks'
+
 export type * from './types'

@@ -88,6 +88,8 @@ export interface HashChunksParams {
   realPreHash: boolean
 }
 
+export type SliceUploadStatus = 'ready' | 'uploading' | 'success' | 'error'
+
 export interface SliceUploadItem extends FileChunk {
   status: 'pending' | 'uploading' | 'success' | 'error'
   progress: number

@@ -1,4 +1,4 @@
-import type { FileChunk, SliceUploadItem, SliceUploadOptions } from '.'
+import type { FileChunk, SliceUploadItem, SliceUploadOptions, SliceUploadStatus } from '.'
 import { getHashChunks } from '.'
 
 export type IAjax = (params: { chunk: File; index: number; all: number; md5: string }) => Promise<boolean | void>
@@ -23,6 +23,7 @@ export class SliceUpload {
   private retryDelay: number
   private sliceUploadList: SliceUploadItem[] = []
 
+  private status: SliceUploadStatus = 'ready'
   private preHash = ''
   private fileChunks: FileChunk[] = []
 
@@ -83,11 +84,10 @@ export class SliceUpload {
 
   /**
    * 开始上传
-   * @returns
    */
   async start() {
     if (!this._hasFile)
-      return this
+      return
 
     // if (!this.uploadRequestInstance)
     //   throw new Error('请先设置上传请求函数')
@@ -100,13 +100,26 @@ export class SliceUpload {
     }
   }
 
-  cancel() {
-  }
+  /**
+   * 暂停上传
+   */
+  pause() {}
 
+  /**
+   * 取消上传
+   */
+  cancel() {}
+
+  /**
+   * 是否有文件
+   */
   get hasFile() {
     return !!this.file?.size
   }
 
+  /**
+   * 是否有文件，没有则抛出错误
+   */
   private get _hasFile() {
     if (!this.file)
       throw new Error('请先设置上传文件')
