@@ -5,11 +5,11 @@ async function handleUploadFile(e: Event) {
   const file = (e.target as HTMLInputElement).files![0]
   const chunkSize = 1024 * 1024 * 10
 
-  const preRealHash = false
-  const chunkRealHash = false
+  const realPreHash = false
+  const realChunkHash = false
   let preHash = ''
 
-  if (!preRealHash) {
+  if (!realPreHash) {
     console.time('pre_hash')
     preHash = await getPreHash(file, 1024 * 1024 * 2)
     console.log(preHash)
@@ -21,7 +21,7 @@ async function handleUploadFile(e: Event) {
     file,
     preHash,
     chunkSize,
-    chunkRealHash,
+    realChunkHash,
   })
   console.log({ file, chunks })
   console.timeEnd('chunks')

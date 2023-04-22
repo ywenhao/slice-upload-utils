@@ -10,7 +10,7 @@ export interface FileChunkParams {
   /**
    * 是否计算前置真实hash
    */
-  chunkRealHash: boolean
+  realChunkHash: boolean
   /**
    * 分片大小
    */
@@ -65,11 +65,11 @@ export interface SliceUploadOptions {
    *
    * @default false
    */
-  preRealHash?: boolean
+  realPreHash?: boolean
   /**
    * 计算分片文件的hash，开启后比较耗时间
    *
    * @default false
    */
-  chunkRealHash?: boolean
+  realChunkHash?: boolean
 }
