@@ -45,6 +45,10 @@ export interface FileChunkResult {
 
 export interface SliceUploadOptions {
   /**
+   * 上传的文件
+   */
+  file?: File
+  /**
    * 分片大小
    * @default 1024 * 1024 * 2
    */
@@ -72,4 +76,22 @@ export interface SliceUploadOptions {
    * @default false
    */
   realChunkHash?: boolean
+}
+
+/**
+ * 分片hash参数
+ */
+export interface HashChunksParams {
+  file: File
+  chunkSize: number
+  realChunkHash: boolean
+  realPreHash: boolean
+}
+
+export interface SliceUploadItem extends FileChunk {
+  status: 'pending' | 'uploading' | 'success' | 'error'
+  progress: number
+  totalSize: number
+  uploadedSize: number
+  request: () => Promise<any>
 }

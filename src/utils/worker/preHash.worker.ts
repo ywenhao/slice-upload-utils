@@ -1,17 +1,13 @@
-import SparkMD5 from 'spark-md5'
+import { getFileHash } from '../hash'
 
 self.onmessage = (e) => {
   const { file } = e.data as { file: File }
 
-  const spark = new SparkMD5.ArrayBuffer()
-
-  async function getFileChunk() {
-    spark.append(await file.arrayBuffer())
-
-    const hash = spark.end()
+  async function _run() {
+    const hash = await getFileHash(file)
     self.postMessage({ hash })
     self.close()
   }
 
-  getFileChunk()
+  _run()
 }

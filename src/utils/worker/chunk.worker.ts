@@ -1,5 +1,6 @@
 import SparkMD5 from 'spark-md5'
 import type { FileChunk, FileChunkParams } from '../../types'
+import { getCustomChunkHash } from '..'
 
 self.onmessage = (e) => {
   const { chunkSize, file, realChunkHash, preHash: hash } = e.data as FileChunkParams
@@ -16,7 +17,7 @@ self.onmessage = (e) => {
   if (realChunkHash)
     chunkSpark = new SparkMD5.ArrayBuffer()
 
-  async function getFileChunk() {
+  async function _run() {
     for (let index = 0; index < chunks; index++) {
       const start = index * chunkSize
       const end = start + chunkSize >= file.size ? file.size : start + chunkSize
@@ -41,11 +42,11 @@ self.onmessage = (e) => {
 
     // 计算分片hash
     if (!realChunkHash)
-      fileChunks = fileChunks.map((v, index) => ({ ...v, chunkHash: SparkMD5.hash(`${hash}_${chunkSize}_${index}`) }))
+      fileChunks = fileChunks.map((v, index) => ({ ...v, chunkHash: getCustomChunkHash(preHash, chunkSize, index) }))
 
     self.postMessage({ fileChunks, preHash })
     self.close()
   }
 
-  getFileChunk()
+  _run()
 }
