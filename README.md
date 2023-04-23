@@ -30,17 +30,14 @@
 
     :: **chunkHash**, **file.size** 小于**chunkSize**时，**file**等于**chunk**，**chunkHash**等于**preHash**；**file.size**大于**chunkSize**时在**web worker**里面计算。
 
-  
+  - 可以根据实例中的**isPreHash**和**isChunkHash**的值来判断当前是否计算的真实hash。
 
 
 ## 快速开始
-
  * 使用 pnpm 安装
-
   ```shell
-pnpm add file-slice-upload
+  pnpm add file-slice-upload
   ```
-
 
 
 ## License
