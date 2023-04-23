@@ -28,7 +28,7 @@
 
     :: **preHash**, file文件的hash值，file的**真实**MD5值计算，在**file.size**大于**chunkSize**时，通过计算**chunk**的**web worker**线程里面同时计算。
 
-    :: **chunkHash**, f**ile.size** 小于**chunkSize**时，**file**等于**chunk**，**chunkHash**等于**preHash**；**file.size**大于**chunkSize**时在**web worker**里面计算。
+    :: **chunkHash**, **file.size** 小于**chunkSize**时，**file**等于**chunk**，**chunkHash**等于**preHash**；**file.size**大于**chunkSize**时在**web worker**里面计算。
 
   
 
