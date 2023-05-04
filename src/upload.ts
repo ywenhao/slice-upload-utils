@@ -1,13 +1,15 @@
+import { ajaxRequest } from './utils/ajax'
+import type { AjaxRequestOptions, RequestHeads, RequestMethod } from './utils/ajax'
 import type { FileChunk, SliceUploadItem, SliceUploadOptions, SliceUploadStatus } from '.'
 import { getHashChunks } from '.'
 
-export type IAjax = (params: { chunk: File; index: number; all: number; md5: string }) => Promise<boolean | void>
+export type IAjax = (params: { chunk: File; index: number; all: number; hash: string }) => Promise<boolean | void>
 
-export interface RequestOptions {
+export interface RequestOptions<D> {
   url: string
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  headers?: Record<string, string>
-  data?: any
+  method: RequestMethod
+  headers?: RequestHeads
+  data: D
   timeout?: number
 }
 
@@ -27,6 +29,8 @@ export class SliceUpload {
   private preHash = ''
   private fileChunks: FileChunk[] = []
 
+  private timeout = 0
+
   private uploadRequestInstance: IAjax | null = null
   private preVerifyRequestInstance: IAjax | null = null
 
@@ -39,6 +43,7 @@ export class SliceUpload {
       realPreHash = false,
       realChunkHash = false,
       chunkSize = 1024 ** 2 * 2,
+      timeout = 15000,
     } = options || {}
 
     this.chunkSize = chunkSize
@@ -46,6 +51,8 @@ export class SliceUpload {
     this.retryDelay = retryDelay
     this.realPreHash = realPreHash
     this.realChunkHash = realChunkHash
+
+    this.timeout = timeout
   }
 
   /**
@@ -63,13 +70,35 @@ export class SliceUpload {
    * @param request
    * @returns
    */
-  async setUploadRequest(request: IAjax) {
-    this.uploadRequestInstance = request
+  async setUploadRequest<D>(request: IAjax | RequestOptions<D>) {
+    if (typeof request === 'function')
+      this.uploadRequestInstance = request
+    else
+      this.uploadRequestInstance = this.getAjaxRequest(request)
+
     return this
   }
 
-  request(options: RequestOptions) {
-    // const { url, method, headers = {}, data, timeout = 30000 } = options
+  getAjaxRequest<Options extends RequestOptions<any>>(options: Options): IAjax {
+    const { timeout } = this
+    return () => new Promise((resolve, reject) => {
+      const ajaxRequestOptions: AjaxRequestOptions = {
+        ...options,
+        timeout,
+        withCredentials: true,
+        onError(evt) {
+          reject(evt)
+        },
+        onSuccess(evt) {
+          resolve(evt)
+        },
+        onUploadProgress(evt) {
+          // console.log('onUploadProgress', evt)
+        },
+      }
+
+      ajaxRequest(ajaxRequestOptions)
+    })
   }
 
   /**

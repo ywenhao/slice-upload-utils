@@ -1,3 +1,5 @@
+import type { RequestStatus } from './utils/ajax'
+
 export interface FileChunkParams {
   /**
    * 上传源文件
@@ -65,6 +67,11 @@ export interface SliceUploadOptions {
    */
   retryDelay?: number
   /**
+   * 请求超时时间(15s)
+   * @default 15000
+   */
+  timeout?: number
+  /**
    * 计算整个文件的hash，开启后比较耗时间
    *
    * @default false
@@ -88,10 +95,10 @@ export interface HashChunksParams {
   realPreHash: boolean
 }
 
-export type SliceUploadStatus = 'ready' | 'uploading' | 'success' | 'error'
+export type SliceUploadStatus = Exclude<RequestStatus, 'downloading'>
 
 export interface SliceUploadItem extends FileChunk {
-  status: 'pending' | 'uploading' | 'success' | 'error'
+  status: SliceUploadStatus
   progress: number
   totalSize: number
   uploadedSize: number

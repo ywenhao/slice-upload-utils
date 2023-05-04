@@ -1,76 +1,82 @@
 // import type { Awaitable } from 'vitest'
 
-export interface UploadProgressEvent extends ProgressEvent {
+export interface RequestProgressEvent extends ProgressEvent {
   percent: number
 }
 
-export interface UploadRequestOptions {
-  action: string
-  method: string
-  data: Record<string, string | Blob | [string | Blob, string]>
-  filename: string
-  file: File
-  headers: Headers | Record<string, string | number | null | undefined>
-  onError: (evt: UploadAjaxError) => void
-  onProgress: (evt: UploadProgressEvent) => void
+export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD' | 'OPTIONS' | 'PATCH'
+
+export type RequestHeads = Headers | Record<string, string | number | null | undefined>
+
+export interface AjaxRequestOptions {
+  url: string
+  method: RequestMethod
+  timeout?: number
+  data: XMLHttpRequestBodyInit | FormData
+  // filename: string
+  // file: File
+  headers?: RequestHeads
+  onError: (evt: AjaxRequestError) => void
+  onUploadProgress?: (evt: RequestProgressEvent) => void
+  onDownloadProgress?: (evt: RequestProgressEvent) => void
   onSuccess: (response: any) => void
   withCredentials: boolean
 }
 
-export type UploadStatus = 'ready' | 'uploading' | 'success' | 'fail'
+export type RequestStatus = 'ready' | 'downloading' | 'uploading' | 'success' | 'fail'
 
-export interface UploadFile {
+export interface RequestFile {
   name: string
   percentage?: number
-  status: UploadStatus
+  status: RequestStatus
   size?: number
   response?: unknown
   uid: number
   url?: string
-  raw?: UploadRawFile
+  raw?: RequestRawFile
 }
 
-export interface UploadRawFile extends File {
+export interface RequestRawFile extends File {
   uid: number
 }
 
-export type UploadRequestHandler = (
-  options: UploadRequestOptions
+export type AjaxRequestHandler = (
+  options: AjaxRequestOptions
 ) => XMLHttpRequest | Promise<unknown>
 
-export type UploadFiles = UploadFile[]
+export type RequestFiles = RequestFile[]
 
 // export interface UploadHooks {
 //   beforeUpload: (
 //     rawFile: UploadRawFile
 //   ) => Awaitable<void | undefined | null | boolean | File | Blob>
 //   beforeRemove: (
-//     uploadFile: UploadFile,
-//     uploadFiles: UploadFiles
+//     uploadFile: RequestFile,
+//     uploadFiles: RequestFiles
 //   ) => Awaitable<boolean>
-//   onRemove: (uploadFile: UploadFile, uploadFiles: UploadFiles) => void
-//   onChange: (uploadFile: UploadFile, uploadFiles: UploadFiles) => void
-//   onPreview: (uploadFile: UploadFile) => void
+//   onRemove: (uploadFile: RequestFile, uploadFiles: RequestFiles) => void
+//   onChange: (uploadFile: RequestFile, uploadFiles: RequestFiles) => void
+//   onPreview: (uploadFile: RequestFile) => void
 //   onSuccess: (
 //     response: any,
-//     uploadFile: UploadFile,
-//     uploadFiles: UploadFiles
+//     uploadFile: RequestFile,
+//     uploadFiles: RequestFiles
 //   ) => void
 //   onProgress: (
 //     evt: UploadProgressEvent,
-//     uploadFile: UploadFile,
-//     uploadFiles: UploadFiles
+//     uploadFile: RequestFile,
+//     uploadFiles: RequestFiles
 //   ) => void
 //   onError: (
 //     error: Error,
-//     uploadFile: UploadFile,
-//     uploadFiles: UploadFiles
+//     uploadFile: RequestFile,
+//     uploadFiles: RequestFiles
 //   ) => void
 //   // onExceed: (files: File[], uploadFiles: UploadUserFile[]) => void
 // }
 
-export class UploadAjaxError extends Error {
-  name = 'UploadAjaxError'
+export class AjaxRequestError extends Error {
+  name = 'AjaxRequestError'
   status: number
   method: string
   url: string
@@ -84,8 +90,8 @@ export class UploadAjaxError extends Error {
 }
 
 function getError(
-  action: string,
-  option: UploadRequestOptions,
+  url: string,
+  option: AjaxRequestOptions,
   xhr: XMLHttpRequest,
 ) {
   let msg: string
@@ -96,9 +102,9 @@ function getError(
     msg = `${xhr.responseText}`
 
   else
-    msg = `fail to ${option.method} ${action} ${xhr.status}`
+    msg = `fail to ${option.method} ${url} ${xhr.status}`
 
-  return new UploadAjaxError(msg, xhr.status, option.method, action)
+  return new AjaxRequestError(msg, xhr.status, option.method, url)
 }
 
 function getBody(xhr: XMLHttpRequest): XMLHttpRequestResponseType {
@@ -114,43 +120,48 @@ function getBody(xhr: XMLHttpRequest): XMLHttpRequestResponseType {
   }
 }
 
-export const ajaxUpload: UploadRequestHandler = (option) => {
+export const ajaxRequest: AjaxRequestHandler = (option) => {
   if (typeof XMLHttpRequest === 'undefined')
     throw new Error('XMLHttpRequest is undefined')
 
   const xhr = new XMLHttpRequest()
-  const action = option.action
+  const url = option.url
 
-  if (xhr.upload) {
+  if (option.timeout !== undefined) {
+    xhr.timeout = option.timeout
+    xhr.ontimeout = () => {
+      option.onError(getError(url, option, xhr))
+    }
+  }
+
+  if (xhr.upload && option.onUploadProgress) {
     xhr.upload.addEventListener('progress', (evt) => {
-      const progressEvt = evt as UploadProgressEvent
+      const progressEvt = evt as RequestProgressEvent
       progressEvt.percent = evt.total > 0 ? (evt.loaded / evt.total) * 100 : 0
-      option.onProgress(progressEvt)
+      option.onUploadProgress?.(progressEvt)
     })
   }
 
-  const formData = new FormData()
-  if (option.data) {
-    for (const [key, value] of Object.entries(option.data)) {
-      if (Array.isArray(value))
-        formData.append(key, ...value)
-      else formData.append(key, value)
-    }
+  if (option.onDownloadProgress) {
+    xhr.addEventListener('progress', (evt) => {
+      const progressEvt = evt as RequestProgressEvent
+      progressEvt.percent = evt.total > 0 ? (evt.loaded / evt.total) * 100 : 0
+      option.onDownloadProgress?.(progressEvt)
+    })
   }
-  formData.append(option.filename, option.file, option.file.name)
 
   xhr.addEventListener('error', () => {
-    option.onError(getError(action, option, xhr))
+    option.onError(getError(url, option, xhr))
   })
 
   xhr.addEventListener('load', () => {
     if (xhr.status < 200 || xhr.status >= 300)
-      return option.onError(getError(action, option, xhr))
+      return option.onError(getError(url, option, xhr))
 
     option.onSuccess(getBody(xhr))
   })
 
-  xhr.open(option.method, action, true)
+  xhr.open(option.method, url, true)
 
   if (option.withCredentials && 'withCredentials' in xhr)
     xhr.withCredentials = true
@@ -167,6 +178,6 @@ export const ajaxUpload: UploadRequestHandler = (option) => {
     }
   }
 
-  xhr.send(formData)
+  xhr.send(option.data)
   return xhr
 }
