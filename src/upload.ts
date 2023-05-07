@@ -24,6 +24,7 @@ export interface RequestOptions {
  */
 export class SliceUpload {
   private file: File | null
+  private progress = 0
   private chunkSize: number
   private realPreHash: boolean
   private realChunkHash: boolean
@@ -32,6 +33,7 @@ export class SliceUpload {
   private sliceUploadList: SliceUploadItem[] = []
 
   private status: SliceUploadStatus = 'ready'
+
   private preHash = ''
   private fileChunks: FileChunk[] = []
 
@@ -107,6 +109,7 @@ export class SliceUpload {
           resolve(evt)
         },
         onUploadProgress(evt) {
+          const percent = evt.percent
           console.log('onUploadProgress', evt)
         },
       }
