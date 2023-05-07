@@ -17,7 +17,7 @@ self.onmessage = (e) => {
   if (realChunkHash)
     chunkSpark = new SparkMD5.ArrayBuffer()
 
-  async function _run() {
+  async function run() {
     for (let index = 0; index < chunks; index++) {
       const start = index * chunkSize
       const end = start + chunkSize >= file.size ? file.size : start + chunkSize
@@ -48,5 +48,5 @@ self.onmessage = (e) => {
     self.close()
   }
 
-  _run()
+  run()
 }
