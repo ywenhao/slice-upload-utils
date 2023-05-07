@@ -17,3 +17,5 @@ export async function createWorkPromise<Params, Result>(workURL: URL, params: Pa
     worker.postMessage(params)
   })
 }
+
+// TODO: cancel worker

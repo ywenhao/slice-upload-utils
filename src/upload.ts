@@ -3,14 +3,20 @@ import type { AjaxRequestOptions, RequestHeads, RequestMethod } from './utils/aj
 import type { FileChunk, SliceUploadItem, SliceUploadOptions, SliceUploadStatus } from '.'
 import { getHashChunks } from '.'
 
-export type IAjax = (params: { chunk: File; index: number; all: number; hash: string }) => Promise<boolean | void>
+interface Result<D = any> {
+  code: number
+  data?: D
+}
 
-export interface RequestOptions<D> {
+export type IAjax = (params: { chunk: File; index: number; all: number; hash: string }) => Promise<boolean | Result>
+
+export interface RequestOptions {
   url: string
   method: RequestMethod
+  // data: any
   headers?: RequestHeads
-  data: D
   timeout?: number
+  withCredentials?: boolean
 }
 
 /**
@@ -70,7 +76,7 @@ export class SliceUpload {
    * @param request
    * @returns
    */
-  async setUploadRequest<D>(request: IAjax | RequestOptions<D>) {
+  setUploadRequest(request: IAjax | RequestOptions) {
     if (typeof request === 'function')
       this.uploadRequestInstance = request
     else
@@ -79,13 +85,21 @@ export class SliceUpload {
     return this
   }
 
-  getAjaxRequest<Options extends RequestOptions<any>>(options: Options): IAjax {
+  getAjaxRequest<Options extends RequestOptions>(options: Options): IAjax {
     const { timeout } = this
-    return () => new Promise((resolve, reject) => {
+    return params => new Promise((resolve, reject) => {
+      const data = new FormData()
+      data.append('filename', this.file?.name!)
+      Object.keys(params).forEach((key) => {
+        let item = params[key as keyof typeof params]
+        item = typeof item === 'number' ? String(item) : item
+        data.append(key, item)
+      })
       const ajaxRequestOptions: AjaxRequestOptions = {
+        withCredentials: false,
         ...options,
+        data,
         timeout,
-        withCredentials: true,
         onError(evt) {
           reject(evt)
         },
@@ -93,7 +107,7 @@ export class SliceUpload {
           resolve(evt)
         },
         onUploadProgress(evt) {
-          // console.log('onUploadProgress', evt)
+          console.log('onUploadProgress', evt)
         },
       }
 
@@ -118,14 +132,40 @@ export class SliceUpload {
     if (!this._hasFile)
       return
 
-    // if (!this.uploadRequestInstance)
-    //   throw new Error('请先设置上传请求函数')
+    if (!this.uploadRequestInstance)
+      throw new Error('请先设置上传请求函数')
 
     if (!this.preHash && !this.fileChunks.length) {
       const { file, chunkSize, realPreHash, realChunkHash } = this
       const { preHash, fileChunks } = await getHashChunks({ file: file!, chunkSize, realPreHash, realChunkHash })
       this.preHash = preHash
       this.fileChunks = fileChunks
+    }
+
+    // TODO: 预检
+    if (this.preVerifyRequestInstance) {
+      // console.log('preVerifyRequestInstance')
+    }
+
+    const request = this.uploadRequestInstance
+
+    let index = 0
+    while (index < this.fileChunks.length) {
+      let flag = true
+      try {
+        const fileChunk = this.fileChunks[index]
+        const params = { ...fileChunk, chunk: fileChunk.chunk as File, hash: fileChunk.chunkHash, all: this.fileChunks.length }
+        Reflect.deleteProperty(params, 'chunkHash')
+        const result = await request(params as Parameters<IAjax>[number])
+        if (typeof result === 'object' && result.code !== 200)
+          flag = false
+      }
+      catch (e) {
+        flag = false
+      }
+
+      index++
+      console.log(flag)
     }
   }
 
