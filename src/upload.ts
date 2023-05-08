@@ -19,6 +19,13 @@ export interface RequestOptions {
   withCredentials?: boolean
 }
 
+export interface RequestFileChunk extends FileChunk {
+  status: SliceUploadStatus
+  progress: number
+  retryCount: number
+  requestInstance: IAjax
+}
+
 /**
  * 分片上传
  */
@@ -35,7 +42,7 @@ export class SliceUpload {
   private status: SliceUploadStatus = 'ready'
 
   private preHash = ''
-  private fileChunks: FileChunk[] = []
+  private requestFileChunks: RequestFileChunk[] = []
 
   private timeout = 0
 
@@ -138,11 +145,11 @@ export class SliceUpload {
     if (!this.uploadRequestInstance)
       throw new Error('请先设置上传请求函数')
 
-    if (!this.preHash && !this.fileChunks.length) {
+    if (!this.preHash && !this.requestFileChunks.length) {
       const { file, chunkSize, realPreHash, realChunkHash } = this
       const { preHash, fileChunks } = await getHashChunks({ file: file!, chunkSize, realPreHash, realChunkHash })
       this.preHash = preHash
-      this.fileChunks = fileChunks
+      this.requestFileChunks = fileChunks.map(v => ({ ...v }))
     }
 
     // TODO: 预检
@@ -153,11 +160,11 @@ export class SliceUpload {
     const request = this.uploadRequestInstance
 
     let index = 0
-    while (index < this.fileChunks.length) {
+    while (index < this.requestFileChunks.length) {
       let flag = true
       try {
-        const fileChunk = this.fileChunks[index]
-        const params = { ...fileChunk, chunk: fileChunk.chunk as File, hash: fileChunk.chunkHash, all: this.fileChunks.length }
+        const fileChunk = this.requestFileChunks[index]
+        const params = { ...fileChunk, chunk: fileChunk.chunk as File, hash: fileChunk.chunkHash, all: this.requestFileChunks.length }
         Reflect.deleteProperty(params, 'chunkHash')
         const result = await request(params as Parameters<IAjax>[number])
         if (typeof result === 'object' && result.code !== 200)
@@ -211,12 +218,12 @@ export class SliceUpload {
   }
 
   /**
-   * 获取分片，hash
+   * 获取分片，hash, file
    * @returns
    */
-  getHashChunks() {
-    const { preHash, fileChunks } = this
-    return { preHash, chunks: fileChunks }
+  getData() {
+    const { preHash, requestFileChunks: fileChunks, file } = this
+    return { preHash, file, chunks: fileChunks }
   }
 
   get isRealPreHash() {
