@@ -8,7 +8,16 @@ interface Result<D = any> {
   data?: D
 }
 
-export type IAjax = (params: { chunk: File; index: number; all: number; hash: string }) => Promise<boolean | Result>
+export interface UploadParams {
+  chunk: File | Blob
+  index: number
+  chunkTotal: number
+  preHash: string
+  filename: string
+  chunkHash: string
+}
+
+export type UploadRequest = (params: UploadParams) => Promise<boolean | Result>
 
 export interface RequestOptions {
   url: string
@@ -23,7 +32,7 @@ export interface RequestFileChunk extends FileChunk {
   status: SliceUploadStatus
   progress: number
   retryCount: number
-  requestInstance: IAjax
+  requestInstance: UploadRequest
 }
 
 /**
@@ -46,8 +55,8 @@ export class SliceUpload {
 
   private timeout = 0
 
-  private uploadRequestInstance: IAjax | null = null
-  private preVerifyRequestInstance: IAjax | null = null
+  private uploadRequestInstance: UploadRequest | null = null
+  private preVerifyRequestInstance: UploadRequest | null = null
 
   constructor(options?: SliceUploadOptions) {
     this.file = null
@@ -85,7 +94,7 @@ export class SliceUpload {
    * @param request
    * @returns
    */
-  setUploadRequest(request: IAjax | RequestOptions) {
+  setUploadRequest(request: UploadRequest | RequestOptions) {
     if (typeof request === 'function')
       this.uploadRequestInstance = request
     else
@@ -94,7 +103,7 @@ export class SliceUpload {
     return this
   }
 
-  getAjaxRequest<Options extends RequestOptions>(options: Options): IAjax {
+  getAjaxRequest<Options extends RequestOptions>(options: Options): UploadRequest {
     const { timeout } = this
     return params => new Promise((resolve, reject) => {
       const data = new FormData()
@@ -117,7 +126,7 @@ export class SliceUpload {
         },
         onUploadProgress(evt) {
           const percent = evt.percent
-          console.log('onUploadProgress', evt)
+          console.log('onUploadProgress', { evt, percent })
         },
       }
 
@@ -130,7 +139,7 @@ export class SliceUpload {
    * @param request
    * @returns
    */
-  setPreVerifyRequest(request: IAjax) {
+  setPreVerifyRequest(request: UploadRequest) {
     this.preVerifyRequestInstance = request
     return this
   }
@@ -149,7 +158,14 @@ export class SliceUpload {
       const { file, chunkSize, realPreHash, realChunkHash } = this
       const { preHash, fileChunks } = await getHashChunks({ file: file!, chunkSize, realPreHash, realChunkHash })
       this.preHash = preHash
-      this.requestFileChunks = fileChunks.map(v => ({ ...v }))
+
+      const initialRequestFileChunkOther: Omit<RequestFileChunk, keyof FileChunk> = {
+        status: 'ready',
+        progress: 0,
+        retryCount: 0,
+        requestInstance: async () => true,
+      }
+      this.requestFileChunks = fileChunks.map(v => ({ ...v, ...initialRequestFileChunkOther }))
     }
 
     // TODO: 预检
@@ -157,24 +173,26 @@ export class SliceUpload {
       // console.log('preVerifyRequestInstance')
     }
 
+    // TODO: 换掉request
     const request = this.uploadRequestInstance
 
-    let index = 0
-    while (index < this.requestFileChunks.length) {
+    let idx = 0
+    while (idx < this.requestFileChunks.length) {
       let flag = true
       try {
-        const fileChunk = this.requestFileChunks[index]
-        const params = { ...fileChunk, chunk: fileChunk.chunk as File, hash: fileChunk.chunkHash, all: this.requestFileChunks.length }
-        Reflect.deleteProperty(params, 'chunkHash')
-        const result = await request(params as Parameters<IAjax>[number])
-        if (typeof result === 'object' && result.code !== 200)
+        const { chunk, index, chunkHash } = this.requestFileChunks[idx]
+        const params: UploadParams = { chunk, index, chunkHash, preHash: this.preHash, filename: this.file?.name!, chunkTotal: this.requestFileChunks.length }
+        const result = await request(params)
+        if (result === false)
+          flag = false
+        else if (typeof result === 'object' && result.code !== 200)
           flag = false
       }
       catch (e) {
         flag = false
       }
 
-      index++
+      idx++
       console.log(flag)
     }
   }
