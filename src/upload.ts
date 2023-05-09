@@ -162,9 +162,10 @@ export class SliceUpload {
     return this
   }
 
-  setEvent(eventName: ,cb) {
+  // TODO: 设置事件
+  // setEvent(eventName: ,cb) {
 
-  }
+  // }
 
   /**
    * 开始上传
