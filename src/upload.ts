@@ -1,12 +1,7 @@
 import { ajaxRequest } from './utils/ajax'
-import type { AjaxRequestOptions, RequestHeads, RequestMethod } from './utils/ajax'
-import type { FileChunk, SliceUploadItem, SliceUploadOptions, SliceUploadStatus } from '.'
+import type { AjaxRequestOptions, CustomXHR, RequestHeaders, RequestMethod } from './utils/ajax'
+import type { FileChunk, SliceUploadOptions, SliceUploadStatus } from '.'
 import { getHashChunks } from '.'
-
-interface Result<D = any> {
-  code: number
-  data?: D
-}
 
 export interface UploadParams {
   chunk: File | Blob
@@ -17,22 +12,25 @@ export interface UploadParams {
   chunkHash: string
 }
 
-export type UploadRequest = (params: UploadParams) => Promise<boolean | Result>
+export type UploadRequest = (params: UploadParams) => Promise<boolean | void>
 
 export interface RequestOptions {
   url: string
-  method: RequestMethod
-  // data: any
-  headers?: RequestHeads
+  /**
+   * @default 'POST'
+   */
+  method?: RequestMethod
+  data: any
+  headers?: RequestHeaders
   timeout?: number
   withCredentials?: boolean
 }
 
-export interface RequestFileChunk extends FileChunk {
+export interface SliceFileChunk extends FileChunk {
   status: SliceUploadStatus
   progress: number
   retryCount: number
-  requestInstance: UploadRequest
+  requestInstance: UploadRequest | null
 }
 
 /**
@@ -40,20 +38,19 @@ export interface RequestFileChunk extends FileChunk {
  */
 export class SliceUpload {
   private file: File | null
-  private progress = 0
   private chunkSize: number
   private realPreHash: boolean
   private realChunkHash: boolean
   private retryCount: number
   private retryDelay: number
-  private sliceUploadList: SliceUploadItem[] = []
-
-  private status: SliceUploadStatus = 'ready'
-
-  private preHash = ''
-  private requestFileChunks: RequestFileChunk[] = []
-
   private timeout = 0
+
+  private preHash: null | string = ''
+  private currentRequestChunkHash: string | null = null
+  private sliceFileChunks: SliceFileChunk[] = []
+
+  private isCancel = false
+  private isPause = false
 
   private uploadRequestInstance: UploadRequest | null = null
   private preVerifyRequestInstance: UploadRequest | null = null
@@ -91,46 +88,67 @@ export class SliceUpload {
 
   /**
    * 设置上传请求函数
-   * @param request
+   * @param cb UploadRequest
    * @returns
    */
-  setUploadRequest(request: UploadRequest | RequestOptions) {
-    if (typeof request === 'function')
-      this.uploadRequestInstance = request
-    else
-      this.uploadRequestInstance = this.getAjaxRequest(request)
+  setUploadRequest(cb: UploadRequest) {
+    this.uploadRequestInstance = cb
 
     return this
   }
 
-  getAjaxRequest<Options extends RequestOptions>(options: Options): UploadRequest {
+  ajaxRequest<D = any>(options: RequestOptions) {
     const { timeout } = this
-    return params => new Promise((resolve, reject) => {
-      const data = new FormData()
-      data.append('filename', this.file?.name!)
-      Object.keys(params).forEach((key) => {
-        let item = params[key as keyof typeof params]
-        item = typeof item === 'number' ? String(item) : item
-        data.append(key, item)
-      })
+
+    return new Promise<D>((resolve, reject) => {
+      let xhr: CustomXHR
+      const chunk = this.findSliceFileChunk(this.currentRequestChunkHash!)!
+
+      const retryFn = () => {
+        chunk.retryCount++
+        xhr!.request()
+      }
       const ajaxRequestOptions: AjaxRequestOptions = {
+        method: 'POST',
         withCredentials: false,
-        ...options,
-        data,
         timeout,
-        onError(evt) {
+        ...options,
+        onLoadstart: () => {
+          chunk.status = 'uploading'
+          Promise.resolve().then(() => {
+            if (this.stop)
+              xhr && xhr.abort()
+          })
+        },
+        onAbort: (evt) => {
+          chunk.status = 'ready'
+          this.currentRequestChunkHash = null
           reject(evt)
         },
-        onSuccess(evt) {
+        onError: (evt) => {
+          // 重试
+          if (chunk.retryCount < this.retryCount) {
+            this.retryDelay > 0 ? setTimeout(() => retryFn(), this.retryDelay) : retryFn()
+            return
+          }
+          chunk.status = 'fail'
+          this.currentRequestChunkHash = null
+          reject(evt)
+        },
+        onSuccess: (evt) => {
+          chunk.status = 'success'
+          this.currentRequestChunkHash = null
           resolve(evt)
         },
-        onUploadProgress(evt) {
-          const percent = evt.percent
-          console.log('onUploadProgress', { evt, percent })
+        onUploadProgress: (evt) => {
+          const progress = chunk.progress
+          // 防止进度条出现后退
+          if (progress < evt.percent)
+            chunk.progress = evt.percent
         },
       }
 
-      ajaxRequest(ajaxRequestOptions)
+      xhr = ajaxRequest(ajaxRequestOptions)
     })
   }
 
@@ -144,6 +162,10 @@ export class SliceUpload {
     return this
   }
 
+  setEvent(eventName: ,cb) {
+
+  }
+
   /**
    * 开始上传
    */
@@ -154,18 +176,12 @@ export class SliceUpload {
     if (!this.uploadRequestInstance)
       throw new Error('请先设置上传请求函数')
 
-    if (!this.preHash && !this.requestFileChunks.length) {
+    if (!this.preHash && !this.sliceFileChunks.length) {
       const { file, chunkSize, realPreHash, realChunkHash } = this
       const { preHash, fileChunks } = await getHashChunks({ file: file!, chunkSize, realPreHash, realChunkHash })
       this.preHash = preHash
 
-      const initialRequestFileChunkOther: Omit<RequestFileChunk, keyof FileChunk> = {
-        status: 'ready',
-        progress: 0,
-        retryCount: 0,
-        requestInstance: async () => true,
-      }
-      this.requestFileChunks = fileChunks.map(v => ({ ...v, ...initialRequestFileChunkOther }))
+      this.initSliceFileChunks(fileChunks)
     }
 
     // TODO: 预检
@@ -173,19 +189,28 @@ export class SliceUpload {
       // console.log('preVerifyRequestInstance')
     }
 
-    // TODO: 换掉request
+    this.isCancel = false
+    this.isPause = false
     const request = this.uploadRequestInstance
 
+    const chunkTotal = this.sliceFileChunks.length
+
     let idx = 0
-    while (idx < this.requestFileChunks.length) {
+    const beUploadChunks = this.sliceFileChunks.filter(v => v.status === 'ready')
+    const len = beUploadChunks.length
+
+    while (idx < len) {
+      if (this.stop)
+        return
+
       let flag = true
       try {
-        const { chunk, index, chunkHash } = this.requestFileChunks[idx]
-        const params: UploadParams = { chunk, index, chunkHash, preHash: this.preHash, filename: this.file?.name!, chunkTotal: this.requestFileChunks.length }
+        const { chunk, index, chunkHash } = beUploadChunks[idx]
+        const params: UploadParams = { chunk, index, chunkHash, preHash: this.preHash!, filename: this.file?.name!, chunkTotal }
+        this.currentRequestChunkHash = chunkHash
         const result = await request(params)
+
         if (result === false)
-          flag = false
-        else if (typeof result === 'object' && result.code !== 200)
           flag = false
       }
       catch (e) {
@@ -193,19 +218,40 @@ export class SliceUpload {
       }
 
       idx++
-      console.log(flag)
+
+      console.log({ flag })
     }
+  }
+
+  private initSliceFileChunks(fileChunks?: FileChunk[]) {
+    const initialSliceFileChunkOther: Omit<SliceFileChunk, keyof FileChunk> = {
+      status: 'ready',
+      progress: 0,
+      retryCount: 0,
+      requestInstance: null,
+    }
+
+    this.sliceFileChunks = (fileChunks ?? this.sliceFileChunks).map(v => ({ ...v, ...initialSliceFileChunkOther }))
   }
 
   /**
    * 暂停上传
    */
-  pause() {}
+  pause() {
+    this.isPause = true
+  }
 
   /**
    * 取消上传
    */
-  cancel() {}
+  cancel() {
+    this.isCancel = true
+    this.initSliceFileChunks()
+  }
+
+  findSliceFileChunk(chunkHash: string) {
+    return this.sliceFileChunks.find(v => v.chunkHash === chunkHash)
+  }
 
   /**
    * 是否有文件
@@ -229,7 +275,6 @@ export class SliceUpload {
 
   /**
    * 获取文件
-   * @returns
    */
   getFile() {
     return this.file
@@ -237,10 +282,9 @@ export class SliceUpload {
 
   /**
    * 获取分片，hash, file
-   * @returns
    */
   getData() {
-    const { preHash, requestFileChunks: fileChunks, file } = this
+    const { preHash, sliceFileChunks: fileChunks, file } = this
     return { preHash, file, chunks: fileChunks }
   }
 
@@ -250,6 +294,49 @@ export class SliceUpload {
 
   get isRealChunkHash() {
     return this.file?.size! <= this.chunkSize || this.realChunkHash
+  }
+
+  private get stop() {
+    return this.isCancel || this.isPause
+  }
+
+  /**
+   * 上传总进度
+   */
+  get progress() {
+    const chunks = this.sliceFileChunks
+    const len = chunks.length
+    if (!len)
+      return 0
+    const progressTotal = chunks.map(v => v.progress).reduce((pre, cur) => pre + cur, 0)
+    return progressTotal / len
+  }
+
+  /**
+   * 是否已经设置上传函数
+   */
+  get hasRequestInstance() {
+    return !!this.uploadRequestInstance
+  }
+
+  /**
+   * 状态
+   */
+  get status(): SliceUploadStatus {
+    const chunks = this.sliceFileChunks
+    if (!chunks.length)
+      return 'ready'
+
+    if (chunks.some(v => v.status === 'uploading'))
+      return 'uploading'
+
+    if (chunks.every(v => v.status === 'success'))
+      return 'success'
+
+    if (chunks.every(v => v.status !== 'uploading') && chunks.some(v => v.status === 'fail'))
+      return 'fail'
+
+    return 'ready'
   }
 }
 

@@ -1,21 +1,19 @@
-// import type { Awaitable } from 'vitest'
-
 export interface RequestProgressEvent extends ProgressEvent {
   percent: number
 }
 
 export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD' | 'OPTIONS' | 'PATCH'
 
-export type RequestHeads = Headers | Record<string, string | number | null | undefined>
+export type RequestHeaders = Headers | Record<string, string | number | null | undefined>
 
 export interface AjaxRequestOptions {
   url: string
   method: RequestMethod
   timeout?: number
   data: XMLHttpRequestBodyInit | FormData
-  // filename: string
-  // file: File
-  headers?: RequestHeads
+  headers?: RequestHeaders
+  onLoadstart: () => void
+  onAbort?: (evt: AjaxRequestError) => void
   onError: (evt: AjaxRequestError) => void
   onUploadProgress?: (evt: RequestProgressEvent) => void
   onDownloadProgress?: (evt: RequestProgressEvent) => void
@@ -40,40 +38,13 @@ export interface RequestRawFile extends File {
   uid: number
 }
 
+export interface CustomXHR extends XMLHttpRequest {
+  request: () => void
+}
+
 export type AjaxRequestHandler = (
   options: AjaxRequestOptions
-) => XMLHttpRequest | Promise<unknown>
-
-export type RequestFiles = RequestFile[]
-
-// export interface UploadHooks {
-//   beforeUpload: (
-//     rawFile: UploadRawFile
-//   ) => Awaitable<void | undefined | null | boolean | File | Blob>
-//   beforeRemove: (
-//     uploadFile: RequestFile,
-//     uploadFiles: RequestFiles
-//   ) => Awaitable<boolean>
-//   onRemove: (uploadFile: RequestFile, uploadFiles: RequestFiles) => void
-//   onChange: (uploadFile: RequestFile, uploadFiles: RequestFiles) => void
-//   onPreview: (uploadFile: RequestFile) => void
-//   onSuccess: (
-//     response: any,
-//     uploadFile: RequestFile,
-//     uploadFiles: RequestFiles
-//   ) => void
-//   onProgress: (
-//     evt: UploadProgressEvent,
-//     uploadFile: RequestFile,
-//     uploadFiles: RequestFiles
-//   ) => void
-//   onError: (
-//     error: Error,
-//     uploadFile: RequestFile,
-//     uploadFiles: RequestFiles
-//   ) => void
-//   // onExceed: (files: File[], uploadFiles: UploadUserFile[]) => void
-// }
+) => CustomXHR
 
 export class AjaxRequestError extends Error {
   name = 'AjaxRequestError'
@@ -124,7 +95,7 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
   if (typeof XMLHttpRequest === 'undefined')
     throw new Error('XMLHttpRequest is undefined')
 
-  const xhr = new XMLHttpRequest()
+  const xhr = (new XMLHttpRequest()) as CustomXHR
   const url = option.url
 
   if (option.timeout !== undefined) {
@@ -150,6 +121,14 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
     })
   }
 
+  xhr.addEventListener('loadstart', () => {
+    option.onLoadstart()
+  })
+
+  option.onAbort && xhr.addEventListener('abort', () => {
+    option.onAbort?.(getError(url, option, xhr))
+  })
+
   xhr.addEventListener('error', () => {
     option.onError(getError(url, option, xhr))
   })
@@ -160,8 +139,6 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
 
     option.onSuccess(getBody(xhr))
   })
-
-  xhr.open(option.method, url, true)
 
   if (option.withCredentials && 'withCredentials' in xhr)
     xhr.withCredentials = true
@@ -178,6 +155,11 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
     }
   }
 
-  xhr.send(option.data)
+  xhr.request = () => {
+    xhr.open(option.method, url, true)
+    xhr.send(option.data)
+  }
+
+  xhr.request()
   return xhr
 }

@@ -1,4 +1,4 @@
-import type { RequestStatus } from './utils/ajax'
+import type { RequestStatus } from '../utils/ajax'
 
 export interface FileChunkParams {
   /**
@@ -96,11 +96,3 @@ export interface HashChunksParams {
 }
 
 export type SliceUploadStatus = Exclude<RequestStatus, 'downloading'>
-
-export interface SliceUploadItem extends FileChunk {
-  status: SliceUploadStatus
-  progress: number
-  totalSize: number
-  uploadedSize: number
-  request: () => Promise<any>
-}
