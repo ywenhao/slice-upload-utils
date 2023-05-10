@@ -150,14 +150,23 @@ export class SliceUpload {
         chunk.retryCount++
         xhr!.request()
       }
+
+      const abortFn = () => {
+        if (this.stop)
+          xhr && xhr.abort()
+        return this.stop
+      }
       const ajaxRequestOptions: AjaxRequestOptions = {
         method: 'POST',
         withCredentials: false,
         timeout,
         ...options,
         readystatechange: () => {
-          if (this.stop)
-            xhr && xhr.abort()
+          abortFn()
+        },
+        onLoadstart: () => {
+          abortFn()
+          chunk.status = 'uploading'
         },
         onAbort: (evt) => {
           chunk.status = 'ready'
@@ -179,6 +188,7 @@ export class SliceUpload {
           resolve(evt)
         },
         onUploadProgress: (evt) => {
+          abortFn()
           const progress = chunk.progress
           // 防止进度条出现后退
           if (progress < evt.percent)
@@ -190,7 +200,7 @@ export class SliceUpload {
       }
 
       xhr = ajaxRequest(ajaxRequestOptions)
-      xhr.request()
+      !this.stop && xhr.request()
     })
   }
 
@@ -223,13 +233,23 @@ export class SliceUpload {
       this.preHash = preHash
 
       this.initSliceFileChunks(fileChunks)
+      this.emitProgress()
     }
 
+    let _sliceFileChunks = this.sliceFileChunks.slice()
     //  预检
     if (this.preVerifyRequestInstance) {
       const { preHash, file, chunkSize } = this
-      const chunkHashList = await this.preVerifyRequestInstance({ preHash: preHash!, filename: file!.name!, chunkSize, chunkTotal: this.sliceFileChunks.length })
-      this.sliceFileChunks = this.sliceFileChunks.filter(v => chunkHashList.includes(v.chunkHash))
+      let result: string[] = []
+      try {
+        const hashList = await this.preVerifyRequestInstance({ preHash: preHash!, filename: file!.name!, chunkSize, chunkTotal: this.sliceFileChunks.length })
+        result = Array.isArray(hashList) ? hashList : []
+      }
+      catch (e) {
+        console.error('preVerifyRequest is fail', e)
+        result = []
+      }
+      _sliceFileChunks = _sliceFileChunks.filter(v => result.includes(v.chunkHash))
     }
 
     this.isCancel = false
@@ -239,18 +259,29 @@ export class SliceUpload {
     const chunkTotal = this.sliceFileChunks.length
 
     let idx = 0
-    const beUploadChunks = this.sliceFileChunks.filter(v => v.status === 'ready')
+    const beUploadChunks = _sliceFileChunks.filter(v => v.status === 'ready')
     const len = beUploadChunks.length
+
+    const failChunks = this.sliceFileChunks.filter(v => v.status === 'fail')
+    failChunks.forEach(v => v.status = 'ready')
 
     this.emit('start')
     this.emitProgress()
 
     while (idx < len) {
-      if (this.stop)
+      const { chunk, index, chunkHash } = beUploadChunks[idx]
+      const sliceChunk = this.findSliceFileChunk(chunkHash)!
+
+      if (this.stop) {
+        this.sliceFileChunks.forEach((v) => {
+          v.status = 'ready'
+          v.retryCount = 0
+        })
+        this.emitProgress()
         return
+      }
 
       let flag = true
-      const { chunk, index, chunkHash } = beUploadChunks[idx]
       const params: UploadParams = { chunk, index, chunkHash, preHash: this.preHash!, filename: this.file?.name!, chunkTotal }
 
       try {
@@ -264,7 +295,6 @@ export class SliceUpload {
         flag = false
       }
 
-      const sliceChunk = this.findSliceFileChunk(chunkHash)!
       if (flag) {
         sliceChunk.status = 'success'
         sliceChunk.retryCount = 0
@@ -290,8 +320,13 @@ export class SliceUpload {
     this.sliceFileChunks = (fileChunks ?? this.sliceFileChunks).map(v => ({ ...v, ...initialSliceFileChunkOther }))
   }
 
+  private _progress = -1
   emitProgress() {
-    this.emit('progress', { progress: this.progress })
+    const progress = this.progress
+    if (progress !== this._progress) {
+      this.emit('progress', { progress })
+      this._progress = progress
+    }
   }
 
   /**

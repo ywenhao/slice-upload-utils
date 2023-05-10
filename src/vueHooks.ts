@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { ref, watch } from 'vue'
+import { readonly, ref, watch } from 'vue'
 import type { UploadEventType } from './types/upload/event'
 import type { PreVerifyUploadRequest, SliceUploadOptions, SliceUploadStatus, UploadRequest } from '.'
 import { defineSliceUpload } from '.'
@@ -40,18 +40,17 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
     progress.value = params.progress
     const { chunks: _chunks } = instance.getData()
     chunks.value = _chunks
-    status.value = 'uploading'
   })
 
   instance.on('finish', (params) => {
-    status.value = 'finish'
     isFinish.value = true
+    status.value = 'finish'
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
-    options.onError?.(error)
     status.value = 'pause'
+    options.onError?.(error)
   })
 
   const setRequest = (request: UploadRequest) => {
@@ -62,9 +61,13 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
     if (['finish', 'uploading'].includes(status.value))
       return
     instance.start()
+    if (instance.hasFile)
+      status.value = 'uploading'
   }
 
   const pause = () => {
+    if (['finish', 'pause', 'ready'].includes(status.value))
+      return
     instance.pause()
     status.value = 'pause'
   }
@@ -77,10 +80,12 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   const ajaxRequest = instance.ajaxRequest
 
   return {
+    chunks,
     instance,
-    isFinish,
-    progress,
-    status,
+    status: readonly(status),
+    progress: readonly(progress),
+    isFinish: readonly(isFinish),
+
     start,
     pause,
     cancel,

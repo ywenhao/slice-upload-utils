@@ -5,7 +5,7 @@ import { useSliceUpload } from '../../../src'
 
 const uploadFile = ref<File>()
 
-const { instance, progress, start, pause, cancel } = useSliceUpload({
+const { instance, progress, start, pause, cancel, status } = useSliceUpload({
   file: uploadFile,
   request,
 })
@@ -51,7 +51,7 @@ function handlePause() {
         取消
       </button>
     </div>
-    <div>进度：{{ progress }}</div>
+    <div>进度：{{ progress }} {{ status }}</div>
   </div>
 </template>
 
