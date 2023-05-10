@@ -159,9 +159,6 @@ export class SliceUpload {
           if (this.stop)
             xhr && xhr.abort()
         },
-        onLoad() {
-          chunk.status = 'uploading'
-        },
         onAbort: (evt) => {
           chunk.status = 'ready'
           this.currentRequestChunkHash = null
@@ -187,6 +184,7 @@ export class SliceUpload {
           if (progress < evt.percent)
             chunk.progress = evt.percent
 
+          chunk.status = 'uploading'
           this.emitProgress()
         },
       }
@@ -210,6 +208,9 @@ export class SliceUpload {
    * 开始上传
    */
   async start() {
+    if (this.status === 'uploading')
+      return
+
     if (!this._hasFile)
       return
 
