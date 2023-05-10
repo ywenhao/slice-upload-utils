@@ -344,6 +344,7 @@ export class SliceUpload {
     this.isCancel = true
     this.initSliceFileChunks()
     this.emitProgress()
+    this._progress = -1
     this.emit('cancel')
   }
 
