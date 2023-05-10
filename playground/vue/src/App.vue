@@ -38,14 +38,14 @@ function handlePause() {
   <div class="box">
     <input type="file" @change="handleUploadFile">
     <div class="actions">
-      <button @click="() => uploadUtils.start()">
+      <button @click="uploadUtils.start()">
         开始
       </button>
-      <button @click="() => uploadUtils.cancel()">
-        取消
-      </button>
-      <button @click="handlePause">
+      <button class="pause" @click="handlePause">
         暂停
+      </button>
+      <button class="cancel" @click="uploadUtils.cancel()">
+        取消
       </button>
     </div>
   </div>
@@ -65,5 +65,54 @@ function handlePause() {
   margin-top: 20px;
   column-gap: 10px;
   display: flex;
+}
+
+button {
+  margin: 0;
+  line-height: 1;
+  padding: 0 20px;
+  height: 36px;
+  font-size: 14px;
+  border-radius: 3px;
+  color: #fff;
+  background-color: rgb(46, 125, 50);
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 3px 1px -2px, rgba(0, 0, 0, 0.14) 0px 2px 2px 0px, rgba(0, 0, 0, 0.12) 0px 1px 5px 0px;
+  white-space: nowrap;
+  outline: none;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  user-select: none;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  transition: transform 250ms, background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, border-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+}
+
+button:hover {
+  background-color: rgb(27, 94, 32);
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 2px 4px -1px, rgba(0, 0, 0, 0.14) 0px 4px 5px 0px, rgba(0, 0, 0, 0.12) 0px 1px 10px 0px;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+.cancel {
+  background-color: rgb(211, 47, 47);
+}
+
+.cancel:hover {
+  background-color: rgb(169 0 0);
+}
+
+.pause {
+  background-color: rgb(0, 99, 204);
+}
+
+.pause:hover {
+  background-color: rgb(0 75 155);
 }
 </style>

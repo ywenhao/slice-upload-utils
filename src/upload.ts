@@ -12,7 +12,16 @@ export interface UploadParams {
   chunkHash: string
 }
 
+export interface PreVerifyUploadParams {
+  preHash: string
+  filename: string
+  chunkSize: number
+  chunkTotal: number
+}
+
 export type UploadRequest = (params: UploadParams) => Promise<boolean | void>
+
+export type PreVerifyUploadRequest = (params: PreVerifyUploadParams) => Promise<string[]>
 
 export interface RequestOptions {
   url: string
@@ -53,7 +62,7 @@ export class SliceUpload {
   private isPause = false
 
   private uploadRequestInstance: UploadRequest | null = null
-  private preVerifyRequestInstance: UploadRequest | null = null
+  private preVerifyRequestInstance: PreVerifyUploadRequest | null = null
 
   constructor(options?: SliceUploadOptions) {
     this.file = null
@@ -115,6 +124,7 @@ export class SliceUpload {
         ...options,
         onLoadstart: () => {
           chunk.status = 'uploading'
+
           Promise.resolve().then(() => {
             if (this.stop)
               xhr && xhr.abort()
@@ -136,8 +146,6 @@ export class SliceUpload {
           reject(evt)
         },
         onSuccess: (evt) => {
-          chunk.status = 'success'
-          this.currentRequestChunkHash = null
           resolve(evt)
         },
         onUploadProgress: (evt) => {
@@ -157,7 +165,7 @@ export class SliceUpload {
    * @param request
    * @returns
    */
-  setPreVerifyRequest(request: UploadRequest) {
+  setPreVerifyRequest(request: PreVerifyUploadRequest) {
     this.preVerifyRequestInstance = request
     return this
   }
@@ -185,9 +193,11 @@ export class SliceUpload {
       this.initSliceFileChunks(fileChunks)
     }
 
-    // TODO: 预检
+    //  预检
     if (this.preVerifyRequestInstance) {
-      // console.log('preVerifyRequestInstance')
+      const { preHash, file, chunkSize } = this
+      const chunkHashList = await this.preVerifyRequestInstance({ preHash: preHash!, filename: file!.name!, chunkSize, chunkTotal: this.sliceFileChunks.length })
+      this.sliceFileChunks = this.sliceFileChunks.filter(v => chunkHashList.includes(v.chunkHash))
     }
 
     this.isCancel = false
@@ -205,9 +215,10 @@ export class SliceUpload {
         return
 
       let flag = true
+      const { chunk, index, chunkHash } = beUploadChunks[idx]
+      const params: UploadParams = { chunk, index, chunkHash, preHash: this.preHash!, filename: this.file?.name!, chunkTotal }
+
       try {
-        const { chunk, index, chunkHash } = beUploadChunks[idx]
-        const params: UploadParams = { chunk, index, chunkHash, preHash: this.preHash!, filename: this.file?.name!, chunkTotal }
         this.currentRequestChunkHash = chunkHash
         const result = await request(params)
 
@@ -218,9 +229,15 @@ export class SliceUpload {
         flag = false
       }
 
-      idx++
+      const sliceChunk = this.findSliceFileChunk(chunkHash)!
+      if (flag) {
+        sliceChunk.status = 'success'
+        sliceChunk.retryCount = 0
+        sliceChunk.progress = 100
+      }
 
-      console.log({ flag })
+      this.currentRequestChunkHash = null
+      idx++
     }
   }
 
