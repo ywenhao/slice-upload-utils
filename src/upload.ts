@@ -41,7 +41,6 @@ export interface SliceFileChunk extends FileChunk {
   status: SliceUploadStatus
   progress: number
   retryCount: number
-  requestInstance: UploadRequest | null
 }
 
 /**
@@ -69,7 +68,7 @@ export class SliceUpload {
   private preVerifyRequestInstance: PreVerifyUploadRequest | null = null
 
   constructor(options?: SliceUploadOptions) {
-    this.file = null
+    this.file = options?.file || null
 
     const {
       retryCount = 3,
@@ -156,13 +155,12 @@ export class SliceUpload {
         withCredentials: false,
         timeout,
         ...options,
-        onLoadstart: () => {
+        readystatechange: () => {
+          if (this.stop)
+            xhr && xhr.abort()
+        },
+        onLoad() {
           chunk.status = 'uploading'
-
-          Promise.resolve().then(() => {
-            if (this.stop)
-              xhr && xhr.abort()
-          })
         },
         onAbort: (evt) => {
           chunk.status = 'ready'
@@ -189,11 +187,12 @@ export class SliceUpload {
           if (progress < evt.percent)
             chunk.progress = evt.percent
 
-          this.emitProgress(this.currentRequestChunkHash!)
+          this.emitProgress()
         },
       }
 
       xhr = ajaxRequest(ajaxRequestOptions)
+      xhr.request()
     })
   }
 
@@ -243,6 +242,7 @@ export class SliceUpload {
     const len = beUploadChunks.length
 
     this.emit('start')
+    this.emitProgress()
 
     while (idx < len) {
       if (this.stop)
@@ -268,7 +268,7 @@ export class SliceUpload {
         sliceChunk.status = 'success'
         sliceChunk.retryCount = 0
         sliceChunk.progress = 100
-        this.emitProgress(chunkHash)
+        this.emitProgress()
       }
 
       this.currentRequestChunkHash = null
@@ -284,15 +284,13 @@ export class SliceUpload {
       status: 'ready',
       progress: 0,
       retryCount: 0,
-      requestInstance: null,
     }
 
     this.sliceFileChunks = (fileChunks ?? this.sliceFileChunks).map(v => ({ ...v, ...initialSliceFileChunkOther }))
   }
 
-  emitProgress(chunkHash: string) {
-    const chunk = this.findSliceFileChunk(chunkHash)!
-    this.emit('progress', { chunkHash, currentChunkProgress: chunk.progress, progress: this.progress, index: chunk.index })
+  emitProgress() {
+    this.emit('progress', { progress: this.progress })
   }
 
   /**
@@ -309,6 +307,7 @@ export class SliceUpload {
   cancel() {
     this.isCancel = true
     this.initSliceFileChunks()
+    this.emitProgress()
     this.emit('cancel')
   }
 
@@ -324,11 +323,17 @@ export class SliceUpload {
   }
 
   /**
-     * 获取分片，hash, file
+     * 获取分片，hash, file, chunks
      */
   getData() {
-    const { preHash, sliceFileChunks: fileChunks, file } = this
-    return { preHash, file, chunks: fileChunks }
+    const { preHash, sliceFileChunks, file } = this
+    const chunks = sliceFileChunks.map(v => ({
+      status: v.status,
+      progress: v.progress,
+      chunkHash: v.chunkHash,
+      index: v.index,
+    }))
+    return { preHash, file, chunks }
   }
 
   /**

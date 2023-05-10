@@ -1,36 +1,39 @@
 <script setup lang="ts">
-import { defineSliceUpload } from '../../../src'
+import { ref } from 'vue'
+import type { UploadParams } from '../../../src'
+import { useSliceUpload } from '../../../src'
 
-const uploadUtils = defineSliceUpload()
+const uploadFile = ref<File>()
+
+const { instance, progress, start, pause, cancel } = useSliceUpload({
+  file: uploadFile,
+  request,
+})
+
+async function request(params: UploadParams) {
+  const data = new FormData()
+  Object.keys(params).forEach((key) => {
+    let item = params[key as keyof typeof params]
+    item = typeof item === 'number' ? String(item) : item
+    data.append(key, item)
+  })
+
+  const result = await instance.ajaxRequest({
+    data,
+    url: 'https://console-mock.apipost.cn/mock/f233ab29-8e89-4f8d-ab06-c04e42cea621/slice_upload',
+    // url: 'https://console-mock.apipost.cn/',
+  })
+  return result.code === 200
+}
 
 async function handleUploadFile(e: Event) {
   const file = (e.target as HTMLInputElement).files![0]
-  uploadUtils
-    .setFile(file)
-    .setUploadRequest(async (params) => {
-      const data = new FormData()
-      Object.keys(params).forEach((key) => {
-        let item = params[key as keyof typeof params]
-        item = typeof item === 'number' ? String(item) : item
-        data.append(key, item)
-      })
-
-      const result = await uploadUtils.ajaxRequest({
-        data,
-        url: 'https://console-mock.apipost.cn/mock/f233ab29-8e89-4f8d-ab06-c04e42cea621/slice_upload',
-        // url: 'https://console-mock.apipost.cn/',
-      })
-      return result.code === 200
-    })
-    .start()
-
-  console.log('uploadUtils', uploadUtils)
+  uploadFile.value = file
   // mergeFile(res.fileChunks.map(v => v.chunk), file.name, file.type)
 }
 
 function handlePause() {
-  uploadUtils.pause()
-  console.log(uploadUtils.getData())
+  pause()
 }
 </script>
 
@@ -38,16 +41,17 @@ function handlePause() {
   <div class="box">
     <input type="file" @change="handleUploadFile">
     <div class="actions">
-      <button @click="uploadUtils.start()">
+      <button @click="start">
         开始
       </button>
       <button class="pause" @click="handlePause">
         暂停
       </button>
-      <button class="cancel" @click="uploadUtils.cancel()">
+      <button class="cancel" @click="cancel">
         取消
       </button>
     </div>
+    <div>{{ progress }}</div>
   </div>
 </template>
 

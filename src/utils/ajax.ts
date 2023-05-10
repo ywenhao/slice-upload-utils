@@ -12,7 +12,9 @@ export interface AjaxRequestOptions {
   timeout?: number
   data: XMLHttpRequestBodyInit | FormData
   headers?: RequestHeaders
-  onLoadstart: () => void
+  readystatechange?: () => void
+  onLoadstart?: () => void
+  onLoad?: () => void
   onAbort?: (evt: AjaxRequestError) => void
   onError: (evt: AjaxRequestError) => void
   onUploadProgress?: (evt: RequestProgressEvent) => void
@@ -122,7 +124,7 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
   }
 
   xhr.addEventListener('loadstart', () => {
-    option.onLoadstart()
+    option.onLoadstart?.()
   })
 
   option.onAbort && xhr.addEventListener('abort', () => {
@@ -131,6 +133,14 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
 
   xhr.addEventListener('error', () => {
     option.onError(getError(url, option, xhr))
+  })
+
+  xhr.addEventListener('readystatechange', () => {
+    option.readystatechange?.()
+  })
+
+  xhr.addEventListener('load', () => {
+    option.onLoad?.()
   })
 
   xhr.addEventListener('load', () => {
@@ -160,6 +170,6 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
     xhr.send(option.data)
   }
 
-  xhr.request()
+  // xhr.request()
   return xhr
 }
