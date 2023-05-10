@@ -1,5 +1,7 @@
 import { ajaxRequest } from './utils/ajax'
 import type { AjaxRequestOptions, CustomXHR, RequestHeaders, RequestMethod } from './utils/ajax'
+import { Emitter } from './utils/emitter'
+import type { UploadEventKey, UploadEventType } from './types/upload/event'
 import type { FileChunk, SliceUploadOptions, SliceUploadStatus } from '.'
 import { getHashChunks } from '.'
 
@@ -61,6 +63,8 @@ export class SliceUpload {
   private isCancel = false
   private isPause = false
 
+  private events = new Emitter()
+
   private uploadRequestInstance: UploadRequest | null = null
   private preVerifyRequestInstance: PreVerifyUploadRequest | null = null
 
@@ -95,13 +99,43 @@ export class SliceUpload {
     return this
   }
 
+  on<Key extends UploadEventKey>(eventName: Key, cb: UploadEventType[Key]) {
+    this.events.on(eventName, cb)
+    return this
+  }
+
+  off<Key extends UploadEventKey>(eventName: Key, cb?: UploadEventType[Key]) {
+    this.events.off(eventName, cb)
+    return this
+  }
+
+  emit<Key extends UploadEventKey>(eventName: Key, ...args: Parameters<UploadEventType[Key]>) {
+    this.events.emit(eventName, ...args)
+    return this
+  }
+
+  /**
+   * 销毁事件
+   */
+  destroy() {
+    this.events = new Emitter()
+    this.file = null
+    this.preHash = null
+    this.currentRequestChunkHash = null
+    this.sliceFileChunks = []
+    this.isCancel = false
+    this.isPause = false
+    this.uploadRequestInstance = null
+    this.preVerifyRequestInstance = null
+  }
+
   /**
    * 设置上传请求函数
-   * @param cb UploadRequest
+   * @param request UploadRequest
    * @returns
    */
-  setUploadRequest(cb: UploadRequest) {
-    this.uploadRequestInstance = cb
+  setUploadRequest(request: UploadRequest) {
+    this.uploadRequestInstance = request
 
     return this
   }
@@ -143,6 +177,7 @@ export class SliceUpload {
           }
           chunk.status = 'fail'
           this.currentRequestChunkHash = null
+          this.emit('error', evt)
           reject(evt)
         },
         onSuccess: (evt) => {
@@ -153,6 +188,8 @@ export class SliceUpload {
           // 防止进度条出现后退
           if (progress < evt.percent)
             chunk.progress = evt.percent
+
+          this.emitProgress(this.currentRequestChunkHash!)
         },
       }
 
@@ -169,11 +206,6 @@ export class SliceUpload {
     this.preVerifyRequestInstance = request
     return this
   }
-
-  // TODO: 设置事件
-  // setEvent(eventName: ,cb) {
-
-  // }
 
   /**
    * 开始上传
@@ -210,6 +242,8 @@ export class SliceUpload {
     const beUploadChunks = this.sliceFileChunks.filter(v => v.status === 'ready')
     const len = beUploadChunks.length
 
+    this.emit('start')
+
     while (idx < len) {
       if (this.stop)
         return
@@ -234,11 +268,15 @@ export class SliceUpload {
         sliceChunk.status = 'success'
         sliceChunk.retryCount = 0
         sliceChunk.progress = 100
+        this.emitProgress(chunkHash)
       }
 
       this.currentRequestChunkHash = null
       idx++
     }
+
+    if (this.status === 'success')
+      this.emit('finish', { preHash: this.preHash!, filename: this.file?.name!, file: this.file!, chunkTotal: this.sliceFileChunks.length, chunkSize: this.chunkSize })
   }
 
   private initSliceFileChunks(fileChunks?: FileChunk[]) {
@@ -252,11 +290,17 @@ export class SliceUpload {
     this.sliceFileChunks = (fileChunks ?? this.sliceFileChunks).map(v => ({ ...v, ...initialSliceFileChunkOther }))
   }
 
+  emitProgress(chunkHash: string) {
+    const chunk = this.findSliceFileChunk(chunkHash)!
+    this.emit('progress', { chunkHash, currentChunkProgress: chunk.progress, progress: this.progress, index: chunk.index })
+  }
+
   /**
    * 暂停上传
    */
   pause() {
     this.isPause = true
+    this.emit('pause')
   }
 
   /**
@@ -265,10 +309,26 @@ export class SliceUpload {
   cancel() {
     this.isCancel = true
     this.initSliceFileChunks()
+    this.emit('cancel')
   }
 
   findSliceFileChunk(chunkHash: string) {
     return this.sliceFileChunks.find(v => v.chunkHash === chunkHash)
+  }
+
+  /**
+   * 获取文件
+   */
+  getFile() {
+    return this.file
+  }
+
+  /**
+     * 获取分片，hash, file
+     */
+  getData() {
+    const { preHash, sliceFileChunks: fileChunks, file } = this
+    return { preHash, file, chunks: fileChunks }
   }
 
   /**
@@ -289,21 +349,6 @@ export class SliceUpload {
       throw new Error('上传文件大小不能为0')
 
     return true
-  }
-
-  /**
-   * 获取文件
-   */
-  getFile() {
-    return this.file
-  }
-
-  /**
-   * 获取分片，hash, file
-   */
-  getData() {
-    const { preHash, sliceFileChunks: fileChunks, file } = this
-    return { preHash, file, chunks: fileChunks }
   }
 
   get isRealPreHash() {
