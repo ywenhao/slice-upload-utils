@@ -51,7 +51,7 @@ function handlePause() {
         取消
       </button>
     </div>
-    <div>{{ progress }}</div>
+    <div>进度：{{ progress }}</div>
   </div>
 </template>
 
