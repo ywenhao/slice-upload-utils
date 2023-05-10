@@ -59,6 +59,8 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   }
 
   const start = () => {
+    if (['finish', 'uploading'].includes(status.value))
+      return
     instance.start()
   }
 
