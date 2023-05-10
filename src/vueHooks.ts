@@ -36,6 +36,11 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
     file && instance.setFile(file)
   })
 
+  watch(status, () => {
+    const { chunks: _chunks } = instance.getData()
+    chunks.value = _chunks
+  })
+
   instance.on('progress', (params) => {
     progress.value = params.progress
     const { chunks: _chunks } = instance.getData()
