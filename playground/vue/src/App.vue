@@ -12,9 +12,13 @@ const { instance, chunks, progress, start, pause, cancel, status } = useSliceUpl
   // preVerifyRequest,
 })
 
+// 预检请求 用于断点续传
 // async function preVerifyRequest(params: PreVerifyUploadParams) {
+// const { preHash, filename, chunkSize, chunkTotal } = params
 // const result = await axios.post('/preVerify', params)
 // return result.data // 返回已上传的分片chunkHash[]
+// result.data 为 true，表示已上传所有分片
+// result.data 为 false，表示一个分片都没有上传
 // }
 
 async function request(params: UploadParams) {

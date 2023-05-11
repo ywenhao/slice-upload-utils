@@ -24,7 +24,7 @@ export interface PreVerifyUploadParams {
 
 export type UploadRequest = (params: UploadParams) => Promise<boolean | void>
 
-export type PreVerifyUploadRequest = (params: PreVerifyUploadParams) => Promise<string[]>
+export type PreVerifyUploadRequest = (params: PreVerifyUploadParams) => Promise<string[] | boolean>
 
 export interface RequestOptions {
   url: string
@@ -262,8 +262,14 @@ export class SliceUpload {
       const { preHash, file, chunkSize } = this
       let result: string[] = []
       try {
-        const hashList = await this.preVerifyRequestInstance({ preHash: preHash!, filename: file!.name!, chunkSize, chunkTotal: this.sliceFileChunks.length })
-        result = Array.isArray(hashList) ? hashList : []
+        const checkList = await this.preVerifyRequestInstance({ preHash: preHash!, filename: file!.name!, chunkSize, chunkTotal: this.sliceFileChunks.length })
+        if (Array.isArray(checkList)) {
+          result = checkList
+        }
+        else {
+          if (checkList === true)
+            result = _sliceFileChunks.map(v => v.chunkHash)
+        }
       }
       catch (e) {
         console.error('preVerifyRequest is fail', e)
@@ -287,10 +293,10 @@ export class SliceUpload {
     this.emit('start')
     this.emitProgress()
 
-    const { promiseList } = this.createPromiseList(_sliceFileChunks)
-
-    if (!promiseList.length)
+    if (!_sliceFileChunks.length)
       return
+
+    const { promiseList } = this.createPromiseList(_sliceFileChunks)
 
     promisePool({
       promiseList,
