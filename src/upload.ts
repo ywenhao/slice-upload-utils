@@ -94,6 +94,7 @@ export class SliceUpload {
    * @returns
    */
   setFile(file: File) {
+    file && this.reset()
     this.file = file
     return this
   }
@@ -113,17 +114,21 @@ export class SliceUpload {
     return this
   }
 
-  /**
-   * 销毁事件
-   */
-  destroy() {
-    this.events = new Emitter()
-    this.file = null
+  private reset() {
     this.preHash = null
     this.currentRequestChunkHash = null
     this.sliceFileChunks = []
     this.isCancel = false
     this.isPause = false
+  }
+
+  /**
+   * 销毁事件
+   */
+  destroy() {
+    this.reset()
+    this.events = new Emitter()
+    this.file = null
     this.uploadRequestInstance = null
     this.preVerifyRequestInstance = null
   }
@@ -274,6 +279,8 @@ export class SliceUpload {
 
       if (this.stop) {
         this.sliceFileChunks.forEach((v) => {
+          if (v.status === 'success')
+            return
           v.status = 'ready'
           v.retryCount = 0
         })

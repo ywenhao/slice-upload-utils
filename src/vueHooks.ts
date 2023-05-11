@@ -33,6 +33,10 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   instance.setUploadRequest(options.request)
 
   watch(options.file, (file) => {
+    status.value = 'ready'
+    progress.value = 0
+    chunks.value = []
+    isFinish.value = false
     file && instance.setFile(file)
   })
 
@@ -44,6 +48,7 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   instance.on('progress', (params) => {
     progress.value = params.progress
     const { chunks: _chunks } = instance.getData()
+
     chunks.value = _chunks
   })
 

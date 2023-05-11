@@ -2,10 +2,11 @@
 import { ref } from 'vue'
 import type { UploadParams } from '../../../src'
 import { useSliceUpload } from '../../../src'
+import DoneImg from './done.svg'
 
 const uploadFile = ref<File>()
 
-const { instance, progress, start, pause, cancel, status } = useSliceUpload({
+const { instance, chunks, progress, start, pause, cancel, status } = useSliceUpload({
   file: uploadFile,
   request,
 })
@@ -51,14 +52,25 @@ function handlePause() {
         取消
       </button>
     </div>
-    <div>进度：{{ progress }} {{ status }}</div>
+    <div>总进度：{{ Math.ceil(progress) }} {{ status }}</div>
+    <div class="upload-box">
+      <div v-for="item in chunks" :key="item.chunkHash" class="chunk-box">
+        <div class="chunk">
+          <div class="progress" :style="{ height: `${item.progress.toFixed(2)}%` }" />
+          <img v-show="item.status === 'success'" class="icon-done" :src="DoneImg" alt="">
+        </div>
+        <div class="index">
+          {{ item.index }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .box {
   width: 100%;
-  height: 80vh;
+  margin-top: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -118,5 +130,53 @@ button:active {
 
 .pause:hover {
   background-color: rgb(0 75 155);
+}
+
+.upload-box {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  width: 845px;
+  height: 400px;
+  overflow-y: auto;
+}
+
+.chunk-box {
+  width: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chunk {
+  width: 100%;
+  height: 50px;
+  position: relative;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.chunk .progress {
+  width: 100%;
+  background-color: #ccc;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+}
+
+.chunk .icon-done {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.chunk-box .index {
+  margin-top: 10px;
 }
 </style>
