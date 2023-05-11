@@ -269,7 +269,13 @@ export class SliceUpload {
         console.error('preVerifyRequest is fail', e)
         result = []
       }
-      _sliceFileChunks = _sliceFileChunks.filter(v => result.includes(v.chunkHash))
+      _sliceFileChunks = _sliceFileChunks.filter(v => !result.includes(v.chunkHash))
+      this.sliceFileChunks.forEach((v) => {
+        if (result.includes(v.chunkHash)) {
+          v.status = 'success'
+          v.progress = 100
+        }
+      })
     }
 
     this.isCancel = false
@@ -282,6 +288,9 @@ export class SliceUpload {
     this.emitProgress()
 
     const { promiseList } = this.createPromiseList(_sliceFileChunks)
+
+    if (!promiseList.length)
+      return
 
     promisePool({
       promiseList,

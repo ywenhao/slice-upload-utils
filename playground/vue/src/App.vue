@@ -9,7 +9,13 @@ const uploadFile = ref<File>()
 const { instance, chunks, progress, start, pause, cancel, status } = useSliceUpload({
   file: uploadFile,
   request,
+  // preVerifyRequest,
 })
+
+// async function preVerifyRequest(params: PreVerifyUploadParams) {
+// const result = await axios.post('/preVerify', params)
+// return result.data // 返回已上传的分片chunkHash[]
+// }
 
 async function request(params: UploadParams) {
   const data = new FormData()
@@ -18,6 +24,12 @@ async function request(params: UploadParams) {
     item = typeof item === 'number' ? String(item) : item
     data.append(key, item)
   })
+
+  // 单条预检请求
+  // const check = await axios.post('/check', {preHash: params.preHash, chunkHash: params.chunkHash})
+  // if (check.data === true) {
+  //   return true
+  // }
 
   const result = await instance.ajaxRequest({
     data,
