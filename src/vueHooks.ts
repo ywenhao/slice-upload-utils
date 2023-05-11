@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 import { readonly, ref, watch } from 'vue'
 import type { UploadEventType } from './types/upload/event'
-import type { PreVerifyUploadRequest, SliceUploadOptions, SliceUploadStatus, UploadRequest } from '.'
+import type { PreVerifyUploadRequest, RequestOptions, SliceUploadOptions, SliceUploadStatus, UploadRequest } from '.'
 import { defineSliceUpload } from '.'
 
 export interface Chunks {
@@ -12,11 +12,11 @@ export interface Chunks {
 }
 
 export interface UseSliceUploadOptions extends Omit<SliceUploadOptions, 'file'> {
+  file: Ref<File | null | undefined>
+  request: UploadRequest
   onError?: UploadEventType['error']
   onFinish?: UploadEventType['finish']
   preVerifyRequest?: PreVerifyUploadRequest
-  file: Ref<File | null | undefined>
-  request: UploadRequest
 }
 
 export type UploadStatus = 'ready' | 'uploading' | 'pause' | 'finish'
@@ -87,7 +87,7 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
     status.value = 'ready'
   }
 
-  const ajaxRequest = instance.ajaxRequest
+  const ajaxRequest = (params: RequestOptions) => instance.ajaxRequest(params)
 
   return {
     chunks,

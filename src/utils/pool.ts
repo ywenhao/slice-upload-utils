@@ -1,10 +1,12 @@
 type PromiseFn = (...args: any) => Promise<any>
+type GetFirstParams<T> = T extends (...args: any[]) => any ? Parameters<T>[0] : never
 
 interface PoolParams<T extends PromiseFn> {
   promiseList: T[]
   limit: number
-  resolve: (res: ReturnType<T>) => void
-  reject: (res: ReturnType<T> | Error) => void
+  beStop?: () => boolean
+  resolve?: (res: ReturnType<T>) => void
+  reject?: (res: ReturnType<T> | Error) => void
 }
 
 /**
@@ -15,20 +17,24 @@ interface PoolParams<T extends PromiseFn> {
  * @param reject 单个Promise reject
  */
 export async function promisePool<T extends PromiseFn>(
-  { promiseList, limit, resolve, reject }: PoolParams<T>,
+  params: PoolParams<T>,
 ) {
+  const { promiseList, limit, resolve, reject } = params
   const poolSet = new Set()
 
   for (const promiseFn of promiseList) {
+    if (params.beStop?.())
+      return
+
     if (poolSet.size >= limit)
       await Promise.race(poolSet).catch(e => e)
 
-    const onfulfilled = (res: Parameters<typeof resolve>[0]) => {
-      resolve(res)
+    const onfulfilled = (res: GetFirstParams<typeof resolve>) => {
+      resolve?.(res)
     }
 
-    const onrejected = (res: Parameters<typeof reject>[0]) => {
-      reject(res)
+    const onrejected = (res: GetFirstParams<typeof reject>) => {
+      reject?.(res)
     }
 
     const promise = promiseFn()

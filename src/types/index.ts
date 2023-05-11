@@ -56,6 +56,11 @@ export interface SliceUploadOptions {
    */
   chunkSize?: number
   /**
+   * 并发上传数
+   * @default 3
+   */
+  poolCount?: number
+  /**
    * 请求失败后，重试次数
    *
    * @default 3
