@@ -1,4 +1,4 @@
-import { getFileHash } from '../hash'
+import { getFileHash } from '..'
 
 self.onmessage = (e) => {
   const { file } = e.data as { file: File }
