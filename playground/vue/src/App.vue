@@ -4,6 +4,7 @@ import type { UploadParams } from '../../../src'
 import { useSliceUpload } from '../../../src'
 import DoneImg from './done.svg'
 
+// 上传的文件
 const uploadFile = ref<File>()
 
 const { instance, chunks, progress, start, pause, cancel, status } = useSliceUpload({
@@ -21,7 +22,9 @@ const { instance, chunks, progress, start, pause, cancel, status } = useSliceUpl
 // result.data 为 false，表示一个分片都没有上传
 // }
 
+// 上传请求函数
 async function request(params: UploadParams) {
+  // 上传请求data数据处理
   const data = new FormData()
   Object.keys(params).forEach((key) => {
     let item = params[key as keyof typeof params]
@@ -114,7 +117,6 @@ button {
   position: relative;
   align-items: center;
   justify-content: center;
-  user-select: none;
   user-select: none;
   text-align: center;
   cursor: pointer;

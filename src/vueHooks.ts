@@ -1,10 +1,10 @@
 import type { Ref } from 'vue'
-import { readonly, ref, watch } from 'vue'
+import { computed, readonly, ref, watch } from 'vue'
 import type { UploadEventType } from './types/upload/event'
 import type { PreVerifyUploadRequest, RequestOptions, SliceUploadOptions, SliceUploadStatus, UploadRequest } from '.'
 import { defineSliceUpload } from '.'
 
-export interface Chunks {
+export interface SliceUploadChunk {
   status: SliceUploadStatus
   progress: number
   chunkHash: string
@@ -23,9 +23,9 @@ export type UploadStatus = 'ready' | 'uploading' | 'pause' | 'finish'
 
 export function useSliceUpload(options: UseSliceUploadOptions) {
   const progress = ref(0)
-  const isFinish = ref(false)
-  const chunks = ref<Chunks[]>([])
+  const chunks = ref<SliceUploadChunk[]>([])
   const status = ref<UploadStatus>('ready')
+  const isFinish = computed(() => progress.value === 100)
 
   const instance = defineSliceUpload({ ...options, file: options.file.value! })
   options.preVerifyRequest && instance.setPreVerifyRequest(options.preVerifyRequest)
@@ -36,7 +36,6 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
     status.value = 'ready'
     progress.value = 0
     chunks.value = []
-    isFinish.value = false
     file && instance.setFile(file)
   })
 
@@ -48,12 +47,10 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   instance.on('progress', (params) => {
     progress.value = params.progress
     const { chunks: _chunks } = instance.getData()
-
     chunks.value = _chunks
   })
 
   instance.on('finish', (params) => {
-    isFinish.value = true
     status.value = 'finish'
     options.onFinish?.(params)
   })
@@ -92,9 +89,9 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   return {
     chunks,
     instance,
+    isFinish,
     status: readonly(status),
     progress: readonly(progress),
-    isFinish: readonly(isFinish),
 
     start,
     pause,
