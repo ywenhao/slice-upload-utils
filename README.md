@@ -43,10 +43,11 @@
 
 [/playground/vue/src/App.vue](./playground/vue/src/App.vue)
 
+- 具体效果可以把代码仓库clone下来，pnpm dev一下。
 ## 调用说明
 
 ```ts
-export interface UseSliceUploadOptions extends Omit<SliceUploadOptions, 'file'> {
+export interface UseSliceUploadOptions {
   /**
    * 上传文件
    */
