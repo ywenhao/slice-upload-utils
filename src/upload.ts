@@ -199,21 +199,19 @@ export class SliceUpload {
           resolve(evt)
         },
         onUploadProgress: (evt) => {
-          if (abortFn())
-            return
-          const progress = chunk.progress
-          // 防止进度条出现后退
-          if (progress < evt.percent)
-            chunk.progress = evt.percent
-
           if (evt.percent === 100) {
             chunk.status = 'success'
             chunk.retryCount = 0
             chunk.progress = 100
           }
-          else {
+
+          const progress = chunk.progress
+          // 防止进度条出现后退
+          if (progress < evt.percent)
+            chunk.progress = evt.percent
+
+          if (evt.percent !== 100 && !abortFn())
             chunk.status = 'uploading'
-          }
 
           this.emitProgress()
         },
@@ -263,13 +261,10 @@ export class SliceUpload {
       let result: string[] = []
       try {
         const checkList = await this.preVerifyRequestInstance({ preHash: preHash!, filename: file!.name!, chunkSize, chunkTotal: this.sliceFileChunks.length })
-        if (Array.isArray(checkList)) {
+        if (checkList === true)
+          result = _sliceFileChunks.map(v => v.chunkHash)
+        else if (Array.isArray(checkList))
           result = checkList
-        }
-        else {
-          if (checkList === true)
-            result = _sliceFileChunks.map(v => v.chunkHash)
-        }
       }
       catch (e) {
         console.error('preVerifyRequest is fail', e)
@@ -282,6 +277,7 @@ export class SliceUpload {
           v.progress = 100
         }
       })
+      this.emitFinish()
     }
 
     this.isCancel = false
@@ -303,10 +299,14 @@ export class SliceUpload {
       limit: this.poolCount,
       beStop: () => this.stop,
       resolve: () => {
-        if (this.status === 'success')
-          this.emit('finish', { preHash: this.preHash!, filename: this.file?.name!, file: this.file!, chunkTotal: this.sliceFileChunks.length, chunkSize: this.chunkSize })
+        this.emitFinish()
       },
     })
+  }
+
+  private emitFinish() {
+    if (this.status === 'success')
+      this.emit('finish', { preHash: this.preHash!, filename: this.file?.name!, file: this.file!, chunkTotal: this.sliceFileChunks.length, chunkSize: this.chunkSize })
   }
 
   private createPromiseList(chunks: SliceFileChunk[]) {
