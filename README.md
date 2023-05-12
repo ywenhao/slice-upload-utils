@@ -80,7 +80,6 @@ export interface UseSliceUploadOptions {
   poolCount?: number
   /**
    * 请求失败后，重试次数
-   *
    * @default 3
    */
   retryCount?: number
@@ -96,13 +95,11 @@ export interface UseSliceUploadOptions {
   timeout?: number
   /**
    * 计算整个文件的hash，开启后比较耗时间
-   *
    * @default false
    */
   realPreHash?: boolean
   /**
    * 计算分片文件的hash，开启后比较耗时间
-   *
    * @default false
    */
   realChunkHash?: boolean
