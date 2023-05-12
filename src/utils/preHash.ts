@@ -31,5 +31,6 @@ export function getPreFile(file: File, chunkSize: number) {
 
 export function getPreHashWorker(file: File) {
   const workURL = new URL('./worker/preHash.worker.ts', import.meta.url)
+
   return createWorkPromise<{ file: File }, { hash: string }>(workURL, { file })
 }
