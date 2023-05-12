@@ -25,21 +25,6 @@ export interface AjaxRequestOptions {
 
 export type RequestStatus = 'ready' | 'downloading' | 'uploading' | 'success' | 'fail'
 
-export interface RequestFile {
-  name: string
-  percentage?: number
-  status: RequestStatus
-  size?: number
-  response?: unknown
-  uid: number
-  url?: string
-  raw?: RequestRawFile
-}
-
-export interface RequestRawFile extends File {
-  uid: number
-}
-
 export interface CustomXHR extends XMLHttpRequest {
   request: () => void
 }

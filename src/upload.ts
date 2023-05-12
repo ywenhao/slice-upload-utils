@@ -1,10 +1,9 @@
 import { ajaxRequest } from './utils/ajax'
-import type { AjaxRequestOptions, CustomXHR, RequestHeaders, RequestMethod } from './utils/ajax'
 import { Emitter } from './utils/emitter'
-import type { UploadEventKey, UploadEventType } from './types/upload/event'
 import { promisePool } from './utils/pool'
-import type { FileChunk, SliceUploadOptions, SliceUploadStatus } from '.'
+import type { AjaxRequestOptions, CustomXHR, RequestHeaders, RequestMethod } from './utils/ajax'
 import { getHashChunks } from '.'
+import type { FileChunk, SliceUploadOptions, SliceUploadStatus, UploadEventKey, UploadEventType } from '.'
 
 export interface UploadParams {
   chunk: File | Blob

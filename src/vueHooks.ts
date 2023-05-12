@@ -1,7 +1,6 @@
 import type { Ref } from 'vue'
 import { computed, readonly, ref, watch } from 'vue'
-import type { UploadEventType } from './types/upload/event'
-import type { PreVerifyUploadRequest, RequestOptions, SliceUploadOptions, SliceUploadStatus, UploadRequest } from '.'
+import type { PreVerifyUploadRequest, RequestOptions, SliceUploadOptions, SliceUploadStatus, UploadEventType, UploadRequest } from '.'
 import { defineSliceUpload } from '.'
 
 export interface SliceUploadChunk {

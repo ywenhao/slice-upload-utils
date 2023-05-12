@@ -10,6 +10,7 @@ const uploadFile = ref<File>()
 const { instance, chunks, progress, start, pause, cancel, status } = useSliceUpload({
   file: uploadFile,
   request,
+  // onFinish,
   // preVerifyRequest,
 })
 
@@ -45,6 +46,12 @@ async function request(params: UploadParams) {
   })
   return result.code === 200
 }
+
+// function onFinish(params: UploadFinishParams) {
+// console.log('finish', params)
+// 通知后端合并文件
+// axios.post('/merge', params)
+// }
 
 async function handleUploadFile(e: Event) {
   const file = (e.target as HTMLInputElement).files![0]
