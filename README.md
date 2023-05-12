@@ -39,6 +39,74 @@
   pnpm add file-slice-upload
   ```
 
+ ## 示例代码
+
+[/playground/vue/src/App.vue](./playground/vue/src/App.vue)
+
+## 调用说明
+
+```ts
+export interface UseSliceUploadOptions extends Omit<SliceUploadOptions, 'file'> {
+  /**
+   * 上传文件
+   */
+  file: Ref<File | null | undefined>
+  /**
+   * 上传函数
+   */
+  request: UploadRequest
+  /**
+   * 报错处理函数
+   */
+  onError?: UploadEventType['error']
+  /**
+   * 上传完成函数
+   */
+  onFinish?: UploadEventType['finish']
+  /**
+   * 预检函数
+   */
+  preVerifyRequest?: PreVerifyUploadRequest
+  /**
+   * 分片大小
+   * @default 1024 * 1024 * 2
+   */
+  chunkSize?: number
+  /**
+   * 并发上传数
+   * @default 3
+   */
+  poolCount?: number
+  /**
+   * 请求失败后，重试次数
+   *
+   * @default 3
+   */
+  retryCount?: number
+  /**
+   * 请求失败后，重试间隔时间
+   * @default 300
+   */
+  retryDelay?: number
+  /**
+   * 请求超时时间(15s)
+   * @default 15000
+   */
+  timeout?: number
+  /**
+   * 计算整个文件的hash，开启后比较耗时间
+   *
+   * @default false
+   */
+  realPreHash?: boolean
+  /**
+   * 计算分片文件的hash，开启后比较耗时间
+   *
+   * @default false
+   */
+  realChunkHash?: boolean
+}
+```
 
 ## TODO: 下载， 文档
 
