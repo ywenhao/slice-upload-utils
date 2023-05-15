@@ -1,5 +1,5 @@
 import type { FileChunkParams, FileChunkResult, HashChunksParams } from '../types'
-import { createWorkPromise } from './worker/createWorkPromise'
+import { chunkWorker } from './worker/chunk.worker'
 import { getFileHash, getPreHash } from '.'
 
 export async function getFileChunk(params: FileChunkParams): Promise<FileChunkResult> {
@@ -22,8 +22,7 @@ export async function getFileChunk(params: FileChunkParams): Promise<FileChunkRe
  * @returns
  */
 export function getFileChunkWorker(params: FileChunkParams): Promise<FileChunkResult> {
-  const workURL = new URL('./worker/chunk.worker.ts', import.meta.url)
-  return createWorkPromise<FileChunkParams, FileChunkResult>(workURL, params)
+  return chunkWorker(params)
 }
 
 /**

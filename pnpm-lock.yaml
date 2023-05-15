@@ -53,9 +53,6 @@ importers:
 
   playground/vue:
     dependencies:
-      slice-upload-utils:
-        specifier: ../../dist
-        version: link:../../dist
       vue:
         specifier: ^3.2.47
         version: 3.2.47
