@@ -42,8 +42,9 @@ pnpm add file-slice-upload
   ```
 
  ## 示例代码
-
+### 上传
 [/playground/vue/src/example/Upload.vue](./playground/vue/src/example/Upload.vue)
+### 下载
 [/playground/vue/src/example/Download.vue](./playground/vue/src/example/Download.vue)
 
 ### 下载文件后端代码

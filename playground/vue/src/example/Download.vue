@@ -8,7 +8,7 @@ const { instance, chunks, progress, status, start, pause, cancel, setFileOptions
   // onFinish,
 })
 
-const filename = '故里逢春.mp4'
+const filename = 'dance.mp4'
 // const fileType = 'video/mp4'
 
 // 下载请求函数
