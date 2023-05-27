@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import { computed, readonly, ref, watch } from 'vue'
-import type { DownloadEventType, DownloadRequest, PreVerifyUploadRequest, RequestOptions, SliceDownloadOptions, SliceDownloadStatus, SliceUploadOptions, SliceUploadStatus, UploadEventType, UploadRequest } from '.'
+import type { DownloadEventType, DownloadRequest, PreVerifyUploadRequest, RequestOptions, SetDownloadFileOptions, SliceDownloadOptions, SliceDownloadStatus, SliceUploadOptions, SliceUploadStatus, UploadEventType, UploadRequest } from '.'
 import { defineSliceDownload, defineSliceUpload } from '.'
 
 export interface SliceUploadChunk {
@@ -150,6 +150,8 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
   const setRequest = (request: DownloadRequest) => {
     instance.setDownloadRequest(request)
   }
+  const ajaxRequest = (params: RequestOptions) => instance.ajaxRequest(params)
+  const setFileOptions = (options: SetDownloadFileOptions) => instance.setFileOptions(options)
 
   const start = () => {
     if (['finish', 'downloading'].includes(status.value))
@@ -170,8 +172,6 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
     status.value = 'ready'
   }
 
-  const ajaxRequest = (params: RequestOptions) => instance.ajaxRequest(params)
-
   return {
     chunks,
     instance,
@@ -184,5 +184,6 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
     cancel,
     setRequest,
     ajaxRequest,
+    setFileOptions,
   }
 }

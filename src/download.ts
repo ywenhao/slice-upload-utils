@@ -15,6 +15,17 @@ export interface DownloadParams {
   chunkTotal: number
 }
 
+export interface SetDownloadFileOptions {
+  filename?: string
+  /**
+   * 文件MIME类型
+   * @default application/octet-stream
+   * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
+   */
+  fileType?: string
+  fileSize?: number
+}
+
 export type DownloadRequest = (params: DownloadParams) => Promise<false | File | Blob>
 
 export interface SliceDownloadOptions {
@@ -22,6 +33,7 @@ export interface SliceDownloadOptions {
   filename?: string
   /**
    * 文件MIME类型
+   * @default application/octet-stream
    * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
    */
   fileType?: string
@@ -90,13 +102,13 @@ export class SliceDownload {
     const {
       filename = '',
       fileSize = 0,
-      fileType = '',
       poolCount = 3,
       retryCount = 3,
       autoSave = true,
       timeout = 15000,
       retryDelay = 300,
       chunkSize = 1024 * 1024 * 2,
+      fileType = 'application/octet-stream',
     } = options
 
     this.autoSave = autoSave
@@ -110,6 +122,17 @@ export class SliceDownload {
     this.timeout = timeout
   }
 
+  setFileOptions(options: SetDownloadFileOptions) {
+    const { filename, fileSize, fileType } = options
+    if (filename)
+      this.filename = filename
+    if (fileSize)
+      this.fileSize = fileSize
+    if (fileType)
+      this.fileType = fileType
+    this.check()
+  }
+
   private check() {
     if (!this.filename)
       throw new Error('filename is required')
@@ -117,8 +140,6 @@ export class SliceDownload {
       throw new Error('fileSize is required')
     if (!this.downloadRequestInstance)
       throw new Error('downloadRequestInstance is required')
-    if (this.fileType)
-      throw new Error('fileType is required')
   }
 
   async start() {
@@ -192,10 +213,13 @@ export class SliceDownload {
         try {
           this.currentRequestChunkIndex = index
           const result = await this.downloadRequestInstance!(params)
-          if ((result instanceof Blob))
+          if ((result instanceof Blob)) {
             sliceChunk.file = result
-          if (result === false)
+          }
+          else {
             flag = false
+            console.error('downloadRequest must return Blob')
+          }
         }
         catch (e) {
           flag = false
@@ -238,10 +262,12 @@ export class SliceDownload {
         Range: `bytes=${start}-${end}`,
         ...options.headers,
       }
+
       const ajaxRequestOptions: AjaxRequestOptions = {
-        method: 'POST',
+        method: 'GET',
         withCredentials: false,
         timeout,
+        responseType: 'blob',
         ...options,
         headers,
         readystatechange: () => {

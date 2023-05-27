@@ -67,6 +67,9 @@ function getError(
 }
 
 function getBody(xhr: XMLHttpRequest): XMLHttpRequestResponseType {
+  if (xhr.responseType === 'blob')
+    return xhr.response || xhr.responseText
+
   const text = xhr.responseText || xhr.response
   if (!text)
     return text
@@ -142,23 +145,25 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
   if (option.withCredentials && 'withCredentials' in xhr)
     xhr.withCredentials = true
 
-  const headers = option.headers || {}
-  if (headers instanceof Headers) {
-    headers.forEach((value, key) => xhr.setRequestHeader(key, value))
-  }
-  else {
-    for (const [key, value] of Object.entries(headers)) {
-      if (value === null || value === undefined)
-        continue
-      xhr.setRequestHeader(key, String(value))
+  const setHeader = () => {
+    const headers = option.headers || {}
+    if (headers instanceof Headers) {
+      headers.forEach((value, key) => xhr.setRequestHeader(key, value))
+    }
+    else {
+      for (const [key, value] of Object.entries(headers)) {
+        if (value === null || value === undefined)
+          continue
+        xhr.setRequestHeader(key, String(value))
+      }
     }
   }
 
   xhr.request = () => {
     xhr.open(option.method, url, true)
+    setHeader()
     xhr.send(option.data)
   }
 
-  // xhr.request()
   return xhr
 }
