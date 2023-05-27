@@ -43,12 +43,17 @@ pnpm add file-slice-upload
 
  ## 示例代码
 
-[/playground/vue/src/App.vue](./playground/vue/src/App.vue)
+[/playground/vue/src/example/Upload.vue](./playground/vue/src/example/Upload.vue)
+[/playground/vue/src/example/Download.vue](./playground/vue/src/example/Download.vue)
+
+### 下载文件后端代码
+[koa-download-demo](https://github.com/ywenhao/koa-download-demo)
 
 - 具体效果可以把代码仓库clone下来，pnpm dev一下。
 
 ## 调用说明
 
+### 上传
 ```ts
 export interface UseSliceUploadOptions {
   /**
@@ -56,7 +61,7 @@ export interface UseSliceUploadOptions {
    */
   file: Ref<File | null | undefined>
   /**
-   * 上传函数
+   * 上传请求函数
    */
   request: UploadRequest
   /**
@@ -109,7 +114,61 @@ export interface UseSliceUploadOptions {
 }
 ```
 
-## TODO: 下载， 文档
+### 下载
+```ts
+export interface UseSliceDownloadOptions {
+  fileSize?: number
+  filename?: string
+  /**
+   * 文件MIME类型
+   * @default application/octet-stream
+   * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
+   */
+  fileType?: string
+  /**
+   * 是否自动保存
+   * @default true
+   */
+  autoSave?: boolean
+  /**
+   * 分片大小
+   * @default 1024 * 1024 * 2
+   */
+  chunkSize?: number
+  /**
+   * 并发上传数
+   * @default 3
+   */
+  poolCount?: number
+  /**
+     * 请求失败后，重试次数
+     * @default 3
+     */
+  retryCount?: number
+  /**
+     * 请求失败后，重试间隔时间
+     * @default 300
+     */
+  retryDelay?: number
+  /**
+     * 请求超时时间(15s)
+     * @default 15000
+     */
+  timeout?: number
+  /**
+   * 上传请求函数
+   */
+  request: DownloadRequest
+  /**
+   * 报错处理函数
+   */
+  onError?: DownloadEventType['error']
+  /**
+   * 预检函数
+   */
+  onFinish?: DownloadEventType['finish']
+}
+```
 
 ## License
 
