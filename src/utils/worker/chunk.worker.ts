@@ -5,7 +5,7 @@ import { getCustomChunkHash } from '..'
 export async function chunkWorker(params: FileChunkParams) {
   const { chunkSize, file, realChunkHash, preHash: hash } = params
 
-  const chunks = Math.ceil(file.size / chunkSize)
+  const chunkTotal = Math.ceil(file.size / chunkSize)
 
   let fileChunks: FileChunk[] = []
   let preHashSpark: SparkMD5.ArrayBuffer | undefined
@@ -17,7 +17,7 @@ export async function chunkWorker(params: FileChunkParams) {
   if (realChunkHash)
     chunkSpark = new SparkMD5.ArrayBuffer()
 
-  for (let index = 0; index < chunks; index++) {
+  for (let index = 0; index < chunkTotal; index++) {
     const start = index * chunkSize
     const end = start + chunkSize >= file.size ? file.size : start + chunkSize
     const chunk = file.slice(start, end)
