@@ -11,6 +11,7 @@ export interface AjaxRequestOptions {
   method: RequestMethod
   timeout?: number
   data: XMLHttpRequestBodyInit | FormData
+  responseType?: XMLHttpRequestResponseType
   headers?: RequestHeaders
   readystatechange?: () => void
   onLoadstart?: () => void
@@ -91,6 +92,9 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
       option.onError(getError(url, option, xhr))
     }
   }
+
+  if (option.responseType)
+    xhr.responseType = option.responseType
 
   if (xhr.upload && option.onUploadProgress) {
     xhr.upload.addEventListener('progress', (evt) => {

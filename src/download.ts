@@ -1,5 +1,5 @@
 import type { DownloadEventKey, DownloadEventType, SliceDownloadStatus } from './types'
-import type { AjaxRequestOptions, CustomXHR } from './utils/ajax'
+import type { AjaxRequestOptions, CustomXHR, RequestHeaders } from './utils/ajax'
 import { ajaxRequest } from './utils/ajax'
 import { Emitter } from './utils/emitter'
 import { promisePool } from './utils/pool'
@@ -231,11 +231,17 @@ export class SliceDownload {
           xhr && xhr.abort()
         return this.stop
       }
+      const { start, end } = chunk
+      const headers: RequestHeaders = {
+        Range: `bytes=${start}-${end}`,
+        ...options.headers,
+      }
       const ajaxRequestOptions: AjaxRequestOptions = {
         method: 'POST',
         withCredentials: false,
         timeout,
         ...options,
+        headers,
         readystatechange: () => {
           abortFn()
         },
