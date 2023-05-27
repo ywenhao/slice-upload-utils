@@ -54,7 +54,10 @@ function getError(
   xhr: XMLHttpRequest,
 ) {
   let msg: string
-  if (xhr.response)
+  if (xhr.responseType === 'blob')
+    msg = 'fail to responseType blob'
+
+  else if (xhr.response)
     msg = `${xhr.response.error || xhr.response}`
 
   else if (xhr.responseText)
