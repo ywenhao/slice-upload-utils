@@ -40,8 +40,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "unbuild",
     "dev": "pnpm -C playground/vue dev",
+    "build": "unbuild",
     "stub": "unbuild --stub",
     "lint": "eslint .",
     "prepublishOnly": "pnpm build",

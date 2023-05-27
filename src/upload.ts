@@ -37,7 +37,7 @@ export interface RequestOptions {
   withCredentials?: boolean
 }
 
-export interface SliceFileChunk extends FileChunk {
+export interface SliceUploadFileChunk extends FileChunk {
   status: SliceUploadStatus
   progress: number
   retryCount: number
@@ -58,7 +58,7 @@ export class SliceUpload {
 
   private preHash: null | string = ''
   private currentRequestChunkHash: string | null = null
-  private sliceFileChunks: SliceFileChunk[] = []
+  private sliceFileChunks: SliceUploadFileChunk[] = []
 
   private isCancel = false
   private isPause = false
@@ -74,11 +74,11 @@ export class SliceUpload {
     const {
       poolCount = 3,
       retryCount = 3,
+      timeout = 15000,
       retryDelay = 300,
       realPreHash = false,
       realChunkHash = false,
       chunkSize = 1024 ** 2 * 2,
-      timeout = 15000,
     } = options || {}
 
     this.poolCount = poolCount
@@ -143,7 +143,6 @@ export class SliceUpload {
    */
   setUploadRequest(request: UploadRequest) {
     this.uploadRequestInstance = request
-
     return this
   }
 
@@ -235,7 +234,7 @@ export class SliceUpload {
    * 开始上传
    */
   async start() {
-    if (this.status === 'uploading')
+    if (['uploading', 'success'].includes(this.status))
       return
 
     if (!this._hasFile)
@@ -308,7 +307,7 @@ export class SliceUpload {
       this.emit('finish', { preHash: this.preHash!, filename: this.file?.name!, file: this.file!, chunkTotal: this.sliceFileChunks.length, chunkSize: this.chunkSize })
   }
 
-  private createPromiseList(chunks: SliceFileChunk[]) {
+  private createPromiseList(chunks: SliceUploadFileChunk[]) {
     const beUploadChunks = chunks.filter(v => v.status === 'ready')
     const len = beUploadChunks.length
     const promiseList = beUploadChunks.map((v) => {
@@ -343,7 +342,7 @@ export class SliceUpload {
   }
 
   private initSliceFileChunks(fileChunks?: FileChunk[]) {
-    const initialSliceFileChunkOther: Omit<SliceFileChunk, keyof FileChunk> = {
+    const initialSliceFileChunkOther: Omit<SliceUploadFileChunk, keyof FileChunk> = {
       status: 'ready',
       progress: 0,
       retryCount: 0,
@@ -377,6 +376,7 @@ export class SliceUpload {
     this.initSliceFileChunks()
     this.emitProgress()
     this._progress = -1
+    this.currentRequestChunkHash = null
     this.emit('cancel')
   }
 

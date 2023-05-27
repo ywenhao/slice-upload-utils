@@ -30,3 +30,20 @@ export interface UploadEventType {
 }
 
 export type UploadEventKey = keyof UploadEventType
+
+export interface DownloadFinishParams {
+  file: File
+  chunkSize: number
+  chunkTotal: number
+}
+
+export interface DownloadEventType {
+  start: () => void
+  finish: (params: DownloadFinishParams) => void
+  progress: (params: { progress: number }) => void
+  error: (error: unknown) => void
+  pause: () => void
+  cancel: () => void
+}
+
+export type DownloadEventKey = keyof DownloadEventType

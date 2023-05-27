@@ -98,3 +98,4 @@ export interface HashChunksParams {
 }
 
 export type SliceUploadStatus = Exclude<RequestStatus, 'downloading'>
+export type SliceDownloadStatus = Exclude<RequestStatus, 'uploading'>
