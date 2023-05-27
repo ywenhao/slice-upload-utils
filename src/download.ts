@@ -368,6 +368,17 @@ export class SliceDownload {
     return this
   }
 
+  getData() {
+    const chunks = this.sliceFileChunks.map(v => ({
+      status: v.status,
+      progress: v.progress,
+      start: v.start,
+      end: v.end,
+      index: v.index,
+    }))
+    return { chunks }
+  }
+
   private get stop() {
     return this.isCancel || this.isPause
   }
