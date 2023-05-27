@@ -18,13 +18,13 @@ export interface DownloadParams {
 export type DownloadRequest = (params: DownloadParams) => Promise<false | File | Blob>
 
 export interface SliceDownloadOptions {
-  fileSize: number
-  filename: string
+  fileSize?: number
+  filename?: string
   /**
    * 文件MIME类型
    * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
    */
-  fileType: string
+  fileType?: string
   /**
    * 是否自动保存
    * @default true
@@ -88,9 +88,9 @@ export class SliceDownload {
 
   constructor(options: SliceDownloadOptions) {
     const {
-      filename,
-      fileSize,
-      fileType,
+      filename = '',
+      fileSize = 0,
+      fileType = '',
       poolCount = 3,
       retryCount = 3,
       autoSave = true,
@@ -108,15 +108,17 @@ export class SliceDownload {
     this.retryCount = retryCount
     this.retryDelay = retryDelay
     this.timeout = timeout
-    this.check()
   }
 
   private check() {
     if (!this.filename)
       throw new Error('filename is required')
-
     if (!this.fileSize)
       throw new Error('fileSize is required')
+    if (!this.downloadRequestInstance)
+      throw new Error('downloadRequestInstance is required')
+    if (this.fileType)
+      throw new Error('fileType is required')
   }
 
   async start() {

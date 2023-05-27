@@ -237,11 +237,7 @@ export class SliceUpload {
     if (['uploading', 'success'].includes(this.status))
       return
 
-    if (!this._hasFile)
-      return
-
-    if (!this.uploadRequestInstance)
-      throw new Error('请先设置上传请求函数')
+    this.check()
 
     if (!this.preHash && !this.sliceFileChunks.length) {
       const { file, chunkSize, realPreHash, realChunkHash } = this
@@ -384,6 +380,15 @@ export class SliceUpload {
     return this.sliceFileChunks.find(v => v.chunkHash === chunkHash)
   }
 
+  private check() {
+    if (!this.file)
+      throw new Error('file is required')
+    if (!this.uploadRequestInstance)
+      throw new Error('uploadRequestInstance is required')
+    if (!this.file?.size)
+      throw new Error('file size is 0')
+  }
+
   /**
    * 获取文件
    */
@@ -410,19 +415,6 @@ export class SliceUpload {
    */
   get hasFile() {
     return !!this.file?.size
-  }
-
-  /**
-   * 是否有文件，没有则抛出错误
-   */
-  private get _hasFile() {
-    if (!this.file)
-      throw new Error('请先设置上传文件')
-
-    if (!this.file?.size)
-      throw new Error('上传文件大小不能为0')
-
-    return true
   }
 
   get isRealPreHash() {
