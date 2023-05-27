@@ -8,6 +8,9 @@ const { instance, chunks, progress, status, start, pause, cancel, setFileOptions
   // onFinish,
 })
 
+const filename = '故里逢春.mp4'
+// const fileType = 'video/mp4'
+
 // 下载请求函数
 async function request(params: DownloadParams) {
   // 下载请求data数据处理
@@ -19,15 +22,15 @@ async function request(params: DownloadParams) {
   })
 
   const result = await instance.ajaxRequest({
-    data: { ...params, filename: '故里逢春.mp4' },
-    url: 'http://localhost:10010/download/故里逢春.mp4',
+    data: { ...params, filename },
+    url: `http://localhost:10010/download/${filename}`,
   })
   return result
 }
 
 async function handleStart() {
-  const fileSize = await fetch('http://localhost:10010/size/故里逢春.mp4').then(res => res.json()).then(res => +res.data)
-  setFileOptions({ filename: '故里逢春.mp4', fileSize, fileType: 'video/mp4' })
+  const fileSize = await fetch(`http://localhost:10010/size/${filename}`).then(res => res.json()).then(res => +res.data)
+  setFileOptions({ filename, fileSize })
   start()
 }
 

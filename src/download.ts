@@ -360,7 +360,7 @@ export class SliceDownload {
         index,
         file: null,
         start: index * chunkSize,
-        end: Math.min((index + 1) * chunkSize, fileSize),
+        end: index + 1 === chunkTotal ? fileSize : (index + 1) * chunkSize - 1,
         ...reset,
       }))
       return
