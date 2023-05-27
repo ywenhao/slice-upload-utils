@@ -18,9 +18,12 @@ export interface DownloadParams {
 export type DownloadRequest = (params: DownloadParams) => Promise<false | File | Blob>
 
 export interface SliceDownloadOptions {
-
   fileSize: number
   filename: string
+  /**
+   * 文件MIME类型
+   * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
+   */
   fileType: string
   /**
    * 是否自动保存
