@@ -160,9 +160,27 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
   }
 
   xhr.request = () => {
+    let url = option.url
+    const isGet = option.method === 'GET'
+    const data = option.data
+    if (isGet && data) {
+      const prefix = url.includes('?') ? '&' : '?'
+      if (typeof data === 'string') {
+        url += prefix + data
+      }
+      else {
+        const params = new URLSearchParams()
+        for (const [key, value] of Object.entries(data)) {
+          if (value === null || value === undefined)
+            continue
+          params.append(key, String(value))
+        }
+        url += prefix + params.toString()
+      }
+    }
     xhr.open(option.method, url, true)
     setHeader()
-    xhr.send(option.data)
+    xhr.send(isGet ? null : data)
   }
 
   return xhr
