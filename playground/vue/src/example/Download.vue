@@ -14,13 +14,6 @@ const filename = 'dance.mp4'
 // 下载请求函数
 async function request(params: DownloadParams) {
   // 下载请求data数据处理
-  const data = new FormData()
-  Object.keys(params).forEach((key) => {
-    let item = params[key as keyof typeof params]
-    item = typeof item === 'number' ? String(item) : item
-    data.append(key, item)
-  })
-
   const result = await instance.ajaxRequest({
     data: { ...params, filename },
     url: `http://localhost:10010/download/${filename}`,
