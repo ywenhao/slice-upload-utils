@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { computed, readonly, ref, watch } from 'vue'
+import { computed, nextTick, readonly, ref, watch } from 'vue'
 import type { DownloadEventType, DownloadRequest, PreVerifyUploadRequest, RequestOptions, SetDownloadFileOptions, SliceDownloadOptions, SliceDownloadStatus, SliceUploadOptions, SliceUploadStatus, UploadEventType, UploadRequest } from '.'
 import { defineSliceDownload, defineSliceUpload } from '.'
 
@@ -63,9 +63,10 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
     instance.setUploadRequest(request)
   }
 
-  const start = () => {
+  const start = async () => {
     if (['finish', 'uploading'].includes(status.value))
       return
+    await nextTick()
     instance.start()
     if (instance.hasFile)
       status.value = 'uploading'
