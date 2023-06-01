@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import { computed, nextTick, readonly, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import type { DownloadEventType, DownloadRequest, PreVerifyUploadRequest, RequestOptions, SetDownloadFileOptions, SliceDownloadOptions, SliceDownloadStatus, SliceUploadOptions, SliceUploadStatus, UploadEventType, UploadRequest } from '.'
 import { defineSliceDownload, defineSliceUpload } from '.'
 
@@ -85,6 +85,10 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   }
 
   const ajaxRequest = (params: RequestOptions) => instance.ajaxRequest(params)
+
+  onBeforeUnmount(() => {
+    instance.destroy()
+  })
 
   return {
     chunks,
@@ -172,6 +176,10 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
     instance.cancel()
     status.value = 'ready'
   }
+
+  onBeforeUnmount(() => {
+    instance.destroy()
+  })
 
   return {
     chunks,
