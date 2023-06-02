@@ -2,9 +2,15 @@
 
 [![NPM version](https://img.shields.io/npm/v/slice-upload-utils?color=a1b858&label=)](https://www.npmjs.com/package/slice-upload-utils)
 
+
+<p align="center">
+  <img src="./des.png" />
+</p>
+
 ## 介绍
 
 * 本工具包含上传和下载功能。vite + vue的实现。
+
 
   ### 上传
 
