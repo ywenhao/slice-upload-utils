@@ -23,9 +23,13 @@ export async function getPreHash(file: File, chunkSize: number) {
 export function getPreFile(file: File, chunkSize: number) {
   if (file.size <= chunkSize)
     return file
-  const firstFile = file.slice(0, chunkSize)
-  const lastFile = file.slice(file.size - chunkSize, file.size)
-  const newFile = new File([firstFile, lastFile], file.name, { type: file.type })
+  const size = 500 * 1024
+  const mid = Math.ceil(file.size / 2)
+  const last = file.size - size
+  const firstFile = file.slice(0, size)
+  const midFile = file.slice(mid, mid + size)
+  const lastFile = file.slice(last, file.size)
+  const newFile = new File([firstFile, midFile, lastFile], file.name, { type: file.type })
   return newFile
 }
 

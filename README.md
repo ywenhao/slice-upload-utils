@@ -26,7 +26,7 @@
 
     ##### 自定义hash值：
 
-     :: **preHash**，采用截取file前段和末段合成一个新的文件，同时结合文件的最后修改时间，和file.size一起计算的一个新的hash值。
+     :: **preHash**，采用抽样hash算法，截取file前段、中间和末段合成一个新的文件，和file.size一起计算的一个新的hash值。
 
     :: **chunkHash**，采用preHash结合chunkSize和该切片的index计算hash值。
 
