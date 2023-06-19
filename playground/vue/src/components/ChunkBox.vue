@@ -11,7 +11,7 @@ interface Chunks {
 
 defineProps<{
   isUpload?: boolean
-  chunks?: Chunks[]
+  chunks: Chunks[]
   progress: number
   status: UploadStatus | DownloadStatus
 }>()
