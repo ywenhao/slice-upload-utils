@@ -85,6 +85,10 @@ function getBody(xhr: XMLHttpRequest): XMLHttpRequestResponseType {
   }
 }
 
+function isObject(data: any) {
+  return !(data instanceof FormData) && typeof data !== null && typeof data === 'object'
+}
+
 export const ajaxRequest: AjaxRequestHandler = (option) => {
   if (typeof XMLHttpRequest === 'undefined')
     throw new Error('XMLHttpRequest is undefined')
@@ -153,19 +157,28 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
     if (headers instanceof Headers) {
       headers.forEach((value, key) => xhr.setRequestHeader(key, value))
     }
-    else {
+    else if (headers && typeof headers === 'object') {
       for (const [key, value] of Object.entries(headers)) {
         if (value === null || value === undefined)
           continue
         xhr.setRequestHeader(key, String(value))
       }
     }
+
+    const hasJson = (data: any[]) => data.some(value => String(value).includes('application/json'))
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    if (option.method !== 'GET' && isObject(option.data) && (!headers || ((headers instanceof Headers && !hasJson([...headers.values()]))
+      || (headers && typeof headers === 'object' && !hasJson(Object.values(headers))))
+    ))
+      xhr.setRequestHeader('Content-Type', 'application/json;charset=utf-8')
   }
 
   xhr.request = () => {
     let url = option.url
     const isGet = option.method === 'GET'
-    const data = option.data
+    let data = option.data
     if (isGet && data) {
       const prefix = url.includes('?') ? '&' : '?'
       if (typeof data === 'string') {
@@ -180,6 +193,9 @@ export const ajaxRequest: AjaxRequestHandler = (option) => {
         }
         url += prefix + params.toString()
       }
+    }
+    else if (!isGet && isObject(data)) {
+      data = JSON.stringify(data)
     }
     xhr.open(option.method, url, true)
     setHeader()
