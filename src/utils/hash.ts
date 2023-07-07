@@ -20,7 +20,7 @@ export async function getFileHash(file: File) {
  * @returns
  */
 export function getCustomFileHash(sourceHash: string, file: File) {
-  return SparkMD5.hash(`${sourceHash}_${file.lastModified}_${file.size}`)
+  return SparkMD5.hash(`${sourceHash}_${file.size}`)
 }
 
 /**
