@@ -197,16 +197,14 @@ export class SliceUpload {
           resolve(evt)
         },
         onUploadProgress: (evt) => {
-          if (evt.percent === 100) {
-            chunk.status = 'success'
-            chunk.retryCount = 0
-            chunk.progress = 100
-          }
-
           const progress = chunk.progress
           // 防止进度条出现后退
           if (progress < evt.percent)
             chunk.progress = evt.percent
+
+          // 在接口返回之前，进度条不得超过99
+          if (evt.percent >= 99)
+            chunk.progress = 99
 
           if (evt.percent !== 100 && !abortFn())
             chunk.status = 'uploading'
@@ -322,6 +320,7 @@ export class SliceUpload {
           flag = false
         }
 
+        // 接口返回之后，进度条才能到100
         if (flag) {
           sliceChunk.status = 'success'
           sliceChunk.retryCount = 0
