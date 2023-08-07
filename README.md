@@ -4,7 +4,7 @@
 
 
 <p align="center">
-  <img src="./des.png" />
+  <img src="https://cdn.jsdelivr.net/gh/ywenhao/slice-upload-utils/des.png" />
 </p>
 
 ## 介绍
