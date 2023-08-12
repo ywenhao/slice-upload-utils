@@ -31,6 +31,11 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
 
   instance.setUploadRequest(options.request)
 
+  const setChunk = () => {
+    const data = instance.getData()
+    chunks.value = data.chunks
+  }
+
   watch(options.file, (file) => {
     status.value = 'ready'
     progress.value = 0
@@ -39,23 +44,23 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   })
 
   watch(status, () => {
-    const { chunks: _chunks } = instance.getData()
-    chunks.value = _chunks
+    setChunk()
   })
 
   instance.on('progress', (params) => {
     progress.value = params.progress
-    const { chunks: _chunks } = instance.getData()
-    chunks.value = _chunks
+    setChunk()
   })
 
   instance.on('finish', (params) => {
     status.value = 'finish'
+    setChunk()
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
     status.value = 'pause'
+    setChunk()
     options.onError?.(error)
   })
 
@@ -131,24 +136,29 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
 
   instance.setDownloadRequest(options.request)
 
+  const setChunk = () => {
+    const data = instance.getData()
+    chunks.value = data.chunks
+  }
+
   watch(status, () => {
-    const { chunks: _chunks } = instance.getData()
-    chunks.value = _chunks
+    setChunk()
   })
 
   instance.on('progress', (params) => {
     progress.value = params.progress
-    const { chunks: _chunks } = instance.getData()
-    chunks.value = _chunks
+    setChunk()
   })
 
   instance.on('finish', (params) => {
     status.value = 'finish'
+    setChunk()
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
     status.value = 'pause'
+    setChunk()
     options.onError?.(error)
   })
 
