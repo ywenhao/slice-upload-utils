@@ -400,12 +400,18 @@ export class SliceUpload {
      */
   getData() {
     const { preHash, sliceFileChunks, file } = this
-    const chunks = sliceFileChunks.map(v => ({
-      status: v.status,
-      progress: v.progress,
-      chunkHash: v.chunkHash,
-      index: v.index,
-    }))
+    const chunks = sliceFileChunks.map((v) => {
+      let status = this.isCancel ? 'cancel' : this.isPause ? 'pause' : v.status
+      if (v.progress === 100 || v.progress === 0)
+        status = v.status
+
+      return {
+        status,
+        progress: v.progress,
+        chunkHash: v.chunkHash,
+        index: v.index,
+      }
+    })
     return { preHash, file, chunks }
   }
 

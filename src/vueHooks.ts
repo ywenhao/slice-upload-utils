@@ -52,13 +52,11 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
 
   instance.on('finish', (params) => {
     status.value = 'success'
-    setChunk()
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
     status.value = 'error'
-    setChunk()
     options.onError?.(error)
   })
 
@@ -150,13 +148,11 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
 
   instance.on('finish', (params) => {
     status.value = 'success'
-    setChunk()
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
     status.value = 'error'
-    setChunk()
     options.onError?.(error)
   })
 
