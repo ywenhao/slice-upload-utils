@@ -24,7 +24,7 @@ export interface AjaxRequestOptions {
   withCredentials: boolean
 }
 
-export type RequestStatus = 'ready' | 'downloading' | 'uploading' | 'success' | 'fail'
+export type RequestStatus = 'ready' | 'downloading' | 'uploading' | 'success' | 'error' | 'pause' | 'cancel'
 
 export interface CustomXHR extends XMLHttpRequest {
   request: () => void

@@ -18,12 +18,10 @@ export interface UseSliceUploadOptions extends Omit<SliceUploadOptions, 'file'> 
   preVerifyRequest?: PreVerifyUploadRequest
 }
 
-export type UploadStatus = 'ready' | 'uploading' | 'pause' | 'finish'
-
 export function useSliceUpload(options: UseSliceUploadOptions) {
   const progress = ref(0)
   const chunks = ref<SliceUploadChunk[]>([])
-  const status = ref<UploadStatus>('ready')
+  const status = ref<SliceUploadStatus>('ready')
   const isFinish = computed(() => progress.value === 100)
 
   const instance = defineSliceUpload({ ...options, file: options.file.value! })
@@ -53,13 +51,13 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   })
 
   instance.on('finish', (params) => {
-    status.value = 'finish'
+    status.value = 'success'
     setChunk()
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
-    status.value = 'pause'
+    status.value = 'error'
     setChunk()
     options.onError?.(error)
   })
@@ -69,7 +67,7 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   }
 
   const start = async () => {
-    if (['finish', 'uploading'].includes(status.value))
+    if (['success', 'uploading'].includes(status.value))
       return
     await nextTick()
     instance.start()
@@ -78,15 +76,17 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   }
 
   const pause = () => {
-    if (['finish', 'pause', 'ready'].includes(status.value))
+    if (['success', 'cancel', 'pause', 'ready'].includes(status.value))
       return
     instance.pause()
     status.value = 'pause'
   }
 
   const cancel = () => {
+    if (['cancel', 'ready'].includes(status.value))
+      return
     instance.cancel()
-    status.value = 'ready'
+    status.value = 'cancel'
   }
 
   const ajaxRequest = (params: RequestOptions) => instance.ajaxRequest(params)
@@ -124,12 +124,10 @@ export interface UseSliceDownloadOptions extends SliceDownloadOptions {
   onFinish?: DownloadEventType['finish']
 }
 
-export type DownloadStatus = 'ready' | 'downloading' | 'pause' | 'finish'
-
 export function useSliceDownload(options: UseSliceDownloadOptions) {
   const progress = ref(0)
   const chunks = ref<SliceDownloadChunk[]>([])
-  const status = ref<DownloadStatus>('ready')
+  const status = ref<SliceDownloadStatus>('ready')
   const isFinish = computed(() => progress.value === 100)
 
   const instance = defineSliceDownload({ ...options })
@@ -151,13 +149,13 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
   })
 
   instance.on('finish', (params) => {
-    status.value = 'finish'
+    status.value = 'success'
     setChunk()
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
-    status.value = 'pause'
+    status.value = 'error'
     setChunk()
     options.onError?.(error)
   })
@@ -169,22 +167,24 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
   const setFileOptions = (options: SetDownloadFileOptions) => instance.setFileOptions(options)
 
   const start = () => {
-    if (['finish', 'downloading'].includes(status.value))
+    if (['success', 'downloading'].includes(status.value))
       return
     instance.start()
     status.value = 'downloading'
   }
 
   const pause = () => {
-    if (['finish', 'pause', 'ready'].includes(status.value))
+    if (['success', 'cancel', 'pause', 'ready'].includes(status.value))
       return
     instance.pause()
     status.value = 'pause'
   }
 
   const cancel = () => {
+    if (['cancel', 'ready'].includes(status.value))
+      return
     instance.cancel()
-    status.value = 'ready'
+    status.value = 'cancel'
   }
 
   // onBeforeUnmount(() => {

@@ -188,7 +188,7 @@ export class SliceUpload {
             this.retryDelay > 0 ? setTimeout(() => retryFn(), this.retryDelay) : retryFn()
             return
           }
-          chunk.status = 'fail'
+          chunk.status = 'error'
           this.currentRequestChunkHash = null
           this.emit('error', evt)
           reject(evt)
@@ -275,7 +275,7 @@ export class SliceUpload {
     this.isCancel = false
     this.isPause = false
 
-    const failChunks = this.sliceFileChunks.filter(v => v.status === 'fail')
+    const failChunks = this.sliceFileChunks.filter(v => v.status === 'error')
     failChunks.forEach(v => v.status = 'ready')
 
     this.emit('start')
@@ -455,14 +455,20 @@ export class SliceUpload {
     if (!chunks.length)
       return 'ready'
 
+    if (this.isCancel)
+      return 'cancel'
+
+    if (this.isPause)
+      return 'pause'
+
     if (chunks.some(v => v.status === 'uploading'))
       return 'uploading'
 
     if (chunks.every(v => v.status === 'success'))
       return 'success'
 
-    if (chunks.every(v => v.status !== 'uploading') && chunks.some(v => v.status === 'fail'))
-      return 'fail'
+    if (chunks.some(v => v.status === 'error'))
+      return 'error'
 
     return 'ready'
   }

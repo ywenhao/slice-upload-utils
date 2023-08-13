@@ -162,7 +162,7 @@ export class SliceDownload {
     this.isCancel = false
     this.isPause = false
 
-    const failChunks = this.sliceFileChunks.filter(v => v.status === 'fail')
+    const failChunks = this.sliceFileChunks.filter(v => v.status === 'error')
     failChunks.forEach(v => v.status = 'ready')
 
     this.emit('start')
@@ -290,7 +290,7 @@ export class SliceDownload {
             this.retryDelay > 0 ? setTimeout(() => retryFn(), this.retryDelay) : retryFn()
             return
           }
-          chunk.status = 'fail'
+          chunk.status = 'error'
           this.currentRequestChunkIndex = -1
           this.emit('error', evt)
           reject(evt)
@@ -419,14 +419,20 @@ export class SliceDownload {
     if (!chunks.length)
       return 'ready'
 
+    if (this.isCancel)
+      return 'cancel'
+
+    if (this.isPause)
+      return 'pause'
+
     if (chunks.some(v => v.status === 'downloading'))
       return 'downloading'
 
     if (chunks.every(v => v.status === 'success'))
       return 'success'
 
-    if (chunks.every(v => v.status !== 'downloading') && chunks.some(v => v.status === 'fail'))
-      return 'fail'
+    if (chunks.some(v => v.status === 'error'))
+      return 'error'
 
     return 'ready'
   }
