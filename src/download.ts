@@ -231,6 +231,10 @@ export class SliceDownload {
           sliceChunk.progress = 100
           this.emitProgress()
         }
+        else {
+          sliceChunk.status = 'error'
+          this.emit('error', new Error('uploaded, request fail'))
+        }
 
         this.currentRequestChunkIndex = -1
         return flag
@@ -310,7 +314,7 @@ export class SliceDownload {
           if (progress < evt.percent)
             chunk.progress = evt.percent
 
-          if (evt.percent !== 100 && !abortFn())
+          if (evt.percent !== 100 && !abortFn() && chunk.status !== 'error')
             chunk.status = 'downloading'
 
           this.emitProgress()
@@ -403,7 +407,7 @@ export class SliceDownload {
         status = v.status
 
       return {
-        status: v.status,
+        status,
         progress: v.progress,
         start: v.start,
         end: v.end,

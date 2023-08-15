@@ -206,7 +206,7 @@ export class SliceUpload {
           if (evt.percent >= 99)
             chunk.progress = 99
 
-          if (evt.percent !== 100 && !abortFn())
+          if (evt.percent !== 100 && !abortFn() && chunk.status !== 'error')
             chunk.status = 'uploading'
 
           this.emitProgress()
@@ -326,6 +326,10 @@ export class SliceUpload {
           sliceChunk.retryCount = 0
           sliceChunk.progress = 100
           this.emitProgress()
+        }
+        else {
+          sliceChunk.status = 'error'
+          this.emit('error', new Error('uploaded, request fail'))
         }
 
         this.currentRequestChunkHash = null
