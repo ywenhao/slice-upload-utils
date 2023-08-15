@@ -179,7 +179,6 @@ export class SliceUpload {
           if (chunk.progress !== 100)
             chunk.status = 'ready'
 
-          this.currentRequestChunkHash = null
           reject(evt)
         },
         onError: (evt) => {
@@ -189,7 +188,6 @@ export class SliceUpload {
             return
           }
           chunk.status = 'error'
-          this.currentRequestChunkHash = null
           this.emit('error', evt)
           reject(evt)
         },

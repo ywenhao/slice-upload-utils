@@ -52,11 +52,13 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
 
   instance.on('finish', (params) => {
     status.value = 'success'
+    setChunk()
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
     status.value = 'error'
+    setChunk()
     options.onError?.(error)
   })
 
@@ -71,6 +73,7 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
     instance.start()
     if (instance.hasFile)
       status.value = 'uploading'
+    setChunk()
   }
 
   const pause = () => {
@@ -78,6 +81,7 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
       return
     instance.pause()
     status.value = 'pause'
+    setChunk()
   }
 
   const cancel = () => {
@@ -85,6 +89,7 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
       return
     instance.cancel()
     status.value = 'cancel'
+    setChunk()
   }
 
   const ajaxRequest = (params: RequestOptions) => instance.ajaxRequest(params)
@@ -148,11 +153,13 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
 
   instance.on('finish', (params) => {
     status.value = 'success'
+    setChunk()
     options.onFinish?.(params)
   })
 
   instance.on('error', (error) => {
     status.value = 'error'
+    setChunk()
     options.onError?.(error)
   })
 
@@ -167,6 +174,7 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
       return
     instance.start()
     status.value = 'downloading'
+    setChunk()
   }
 
   const pause = () => {
@@ -174,6 +182,7 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
       return
     instance.pause()
     status.value = 'pause'
+    setChunk()
   }
 
   const cancel = () => {
@@ -181,6 +190,7 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
       return
     instance.cancel()
     status.value = 'cancel'
+    setChunk()
   }
 
   // onBeforeUnmount(() => {
