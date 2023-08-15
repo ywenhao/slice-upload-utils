@@ -117,7 +117,7 @@ export class SliceUpload {
     return this
   }
 
-  private reset() {
+  reset() {
     this.preHash = null
     this.currentRequestChunkHash = null
     this.sliceFileChunks = []
