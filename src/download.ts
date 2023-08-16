@@ -1,6 +1,6 @@
 import type { DownloadEventKey, DownloadEventType, SliceDownloadStatus } from './types'
 import type { AjaxRequestOptions, CustomXHR, RequestHeaders } from './utils/ajax'
-import { ajaxRequest } from './utils/ajax'
+import { AjaxRequestError, ajaxRequest } from './utils/ajax'
 import { Emitter } from './utils/emitter'
 import { promisePool } from './utils/pool'
 import type { RequestOptions } from '.'
@@ -233,7 +233,7 @@ export class SliceDownload {
         }
         else {
           sliceChunk.status = 'error'
-          this.emit('error', new Error('uploaded, request fail'))
+          this.emit('error', new AjaxRequestError(`chunk ${sliceChunk.index} downloaded, request fail`, 700, '', ''))
         }
 
         this.currentRequestChunkIndex = -1

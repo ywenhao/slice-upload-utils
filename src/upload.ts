@@ -1,4 +1,4 @@
-import { ajaxRequest } from './utils/ajax'
+import { AjaxRequestError, ajaxRequest } from './utils/ajax'
 import { Emitter } from './utils/emitter'
 import { promisePool } from './utils/pool'
 import type { AjaxRequestOptions, CustomXHR, RequestHeaders, RequestMethod } from './utils/ajax'
@@ -327,7 +327,7 @@ export class SliceUpload {
         }
         else {
           sliceChunk.status = 'error'
-          this.emit('error', new Error('uploaded, request fail'))
+          this.emit('error', new AjaxRequestError(`chunk ${sliceChunk.index} uploaded, request fail`, 700, '', ''))
         }
 
         this.currentRequestChunkHash = null
