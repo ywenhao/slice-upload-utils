@@ -57,9 +57,11 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   })
 
   instance.on('error', (error) => {
-    status.value = 'error'
+    if (['uploading'].includes(status.value))
+      status.value = 'error'
     setChunk()
-    options.onError?.(error)
+    if (status.value === 'error')
+      options.onError?.(error)
   })
 
   const setRequest = (request: UploadRequest) => {
@@ -158,9 +160,11 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
   })
 
   instance.on('error', (error) => {
-    status.value = 'error'
+    if (['downloading'].includes(status.value))
+      status.value = 'error'
     setChunk()
-    options.onError?.(error)
+    if (status.value === 'error')
+      options.onError?.(error)
   })
 
   const setRequest = (request: DownloadRequest) => {
