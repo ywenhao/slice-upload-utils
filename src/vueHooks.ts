@@ -69,9 +69,9 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   }
 
   const start = async () => {
+    await nextTick()
     if (['success', 'uploading'].includes(status.value))
       return
-    await nextTick()
     instance.start()
     if (instance.hasFile)
       status.value = 'uploading'
