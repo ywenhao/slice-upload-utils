@@ -48,7 +48,7 @@ export interface SliceDownloadOptions {
    */
   chunkSize?: number
   /**
-   * 并发上传数
+   * 并发下载数
    * @default 3
    */
   poolCount?: number
@@ -182,7 +182,7 @@ export class SliceDownload {
   }
 
   /**
-   * 取消上传
+   * 取消下载
    */
   abort() {
     this.xhr.forEach(v => v && v.abort())
@@ -190,7 +190,7 @@ export class SliceDownload {
   }
 
   /**
-   * 暂停上传
+   * 暂停下载
    */
   pause() {
     this.isPause = true
@@ -199,7 +199,7 @@ export class SliceDownload {
   }
 
   /**
-   * 取消上传
+   * 取消下载
    */
   cancel() {
     this.isCancel = true
@@ -464,7 +464,7 @@ export class SliceDownload {
   }
 
   /**
-   * 上传总进度
+   * 下载总进度
    */
   get progress() {
     const chunks = this.sliceFileChunks
