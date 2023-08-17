@@ -98,6 +98,8 @@ export class SliceDownload {
   private sliceFileChunks: SliceDownloadFileChunk[] = []
   private downloadRequestInstance: DownloadRequest | null = null
 
+  private xhr: (CustomXHR | null)[] = []
+
   constructor(options: SliceDownloadOptions) {
     const {
       filename = '',
@@ -172,7 +174,7 @@ export class SliceDownload {
     promisePool({
       promiseList,
       limit: this.poolCount,
-      beStop: () => this.stop,
+      beStop: () => this.stop || !this.sliceFileChunks.length,
       resolve: () => {
         this.emitFinish()
       },
@@ -180,10 +182,19 @@ export class SliceDownload {
   }
 
   /**
+   * 取消上传
+   */
+  abort() {
+    this.xhr.forEach(v => v && v.abort())
+    this.xhr = []
+  }
+
+  /**
    * 暂停上传
    */
   pause() {
     this.isPause = true
+    this.abort()
     this.emit('pause')
   }
 
@@ -192,6 +203,7 @@ export class SliceDownload {
    */
   cancel() {
     this.isCancel = true
+    this.abort()
     this.initSliceFileChunks()
     this.emitProgress()
     this._progress = -1
@@ -248,17 +260,18 @@ export class SliceDownload {
     const { timeout } = this
 
     return new Promise<D>((resolve, reject) => {
-      let xhr: CustomXHR
-      const chunk = this.sliceFileChunks[this.currentRequestChunkIndex]
+      const idx = this.currentRequestChunkIndex
+      const chunk = this.sliceFileChunks[idx]
 
       const retryFn = () => {
         chunk.retryCount++
-        xhr!.request()
+        this.xhr[idx]!.request()
       }
 
       const abortFn = () => {
         if (this.stop)
-          xhr && xhr.abort()
+          this.xhr[idx]!.request()
+
         return this.stop
       }
       const { start, end } = chunk
@@ -303,6 +316,9 @@ export class SliceDownload {
           resolve(evt)
         },
         onDownloadProgress: (evt) => {
+          if (abortFn())
+            return
+
           if (evt.percent === 100) {
             chunk.status = 'success'
             chunk.retryCount = 0
@@ -314,15 +330,14 @@ export class SliceDownload {
           if (progress < evt.percent)
             chunk.progress = evt.percent
 
-          if (evt.percent !== 100 && !abortFn() && chunk.status !== 'error')
+          if (evt.percent !== 100 && !this.stop && chunk.status !== 'error')
             chunk.status = 'downloading'
 
           this.emitProgress()
         },
       }
-
-      xhr = ajaxRequest(ajaxRequestOptions)
-      !this.stop && xhr.request()
+      this.xhr[idx] = ajaxRequest(ajaxRequestOptions)
+      !this.stop && this.xhr[idx]!.request()
     })
   }
 
@@ -381,6 +396,7 @@ export class SliceDownload {
   reset() {
     this.currentRequestChunkIndex = -1
     this.sliceFileChunks = []
+    this.abort()
     this.isCancel = false
     this.isPause = false
   }

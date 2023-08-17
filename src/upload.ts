@@ -68,6 +68,8 @@ export class SliceUpload {
   private uploadRequestInstance: UploadRequest | null = null
   private preVerifyRequestInstance: PreVerifyUploadRequest | null = null
 
+  private xhr: (CustomXHR | null)[] = []
+
   constructor(options?: SliceUploadOptions) {
     this.file = options?.file || null
 
@@ -121,6 +123,7 @@ export class SliceUpload {
     this.preHash = null
     this.currentRequestChunkHash = null
     this.sliceFileChunks = []
+    this.abort()
     this.isCancel = false
     this.isPause = false
   }
@@ -150,17 +153,17 @@ export class SliceUpload {
     const { timeout } = this
 
     return new Promise<D>((resolve, reject) => {
-      let xhr: CustomXHR
       const chunk = this.findSliceFileChunk(this.currentRequestChunkHash!)!
+      const idx = this.sliceFileChunks.findIndex(v => v.chunkHash === chunk.chunkHash)
 
       const retryFn = () => {
         chunk.retryCount++
-        xhr!.request()
+        this.xhr[idx]!.request()
       }
 
       const abortFn = () => {
         if (this.stop)
-          xhr && xhr.abort()
+          this.xhr[idx]!.abort()
         return this.stop
       }
       const ajaxRequestOptions: AjaxRequestOptions = {
@@ -195,6 +198,9 @@ export class SliceUpload {
           resolve(evt)
         },
         onUploadProgress: (evt) => {
+          if (abortFn())
+            return
+
           const progress = chunk.progress
           // 防止进度条出现后退
           if (progress < evt.percent)
@@ -204,15 +210,15 @@ export class SliceUpload {
           if (evt.percent >= 99)
             chunk.progress = 99
 
-          if (evt.percent !== 100 && !abortFn() && chunk.status !== 'error')
+          if (evt.percent !== 100 && !this.stop && chunk.status !== 'error')
             chunk.status = 'uploading'
 
           this.emitProgress()
         },
       }
 
-      xhr = ajaxRequest(ajaxRequestOptions)
-      !this.stop && xhr.request()
+      this.xhr[idx] = ajaxRequest(ajaxRequestOptions)
+      !this.stop && this.xhr[idx]!.request()
     })
   }
 
@@ -287,7 +293,7 @@ export class SliceUpload {
     promisePool({
       promiseList,
       limit: this.poolCount,
-      beStop: () => this.stop,
+      beStop: () => this.stop || !this.sliceFileChunks.length,
       resolve: () => {
         this.emitFinish()
       },
@@ -358,10 +364,19 @@ export class SliceUpload {
   }
 
   /**
+   * 取消上传
+   */
+  abort() {
+    this.xhr.forEach(v => v && v.abort())
+    this.xhr = []
+  }
+
+  /**
    * 暂停上传
    */
   pause() {
     this.isPause = true
+    this.abort()
     this.emit('pause')
   }
 
@@ -370,6 +385,7 @@ export class SliceUpload {
    */
   cancel() {
     this.isCancel = true
+    this.abort()
     this.initSliceFileChunks()
     this.emitProgress()
     this._progress = -1
