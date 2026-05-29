@@ -244,6 +244,11 @@ export class SliceDownload {
           flag = false
         }
 
+        if (this.stop) {
+          if (this.currentRequestChunkIndex === index) this.currentRequestChunkIndex = -1
+          return false
+        }
+
         if (flag) {
           sliceChunk.status = 'success'
           sliceChunk.retryCount = 0

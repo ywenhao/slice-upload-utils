@@ -344,6 +344,11 @@ export class SliceUpload {
           flag = false
         }
 
+        if (this.stop) {
+          if (this.currentRequestChunkHash === chunkHash) this.currentRequestChunkHash = null
+          return false
+        }
+
         // 接口返回之后，进度条才能到100
         if (flag) {
           sliceChunk.status = 'success'

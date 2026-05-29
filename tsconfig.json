@@ -5,6 +5,7 @@
     "lib": ["esnext", "dom"],
     "moduleResolution": "bundler",
     "esModuleInterop": true,
+    "jsx": "react-jsx",
     "strict": true,
     "strictNullChecks": true,
     "resolveJsonModule": true,
@@ -12,6 +13,6 @@
     "skipDefaultLibCheck": true,
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "tsdown.config.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "test/**/*.tsx", "tsdown.config.ts"],
   "exclude": ["dist", "node_modules", "playground"]
 }

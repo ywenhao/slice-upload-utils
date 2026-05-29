@@ -27,8 +27,9 @@ const { chunks, progress, status, start, pause, cancel } = useSliceUpload({
 async function request(params: UploadParams) {
   // 上传请求data数据处理
   const data = new FormData()
-  Object.keys(params).forEach((key) => {
-    let item = params[key as keyof typeof params]
+  const { ajaxRequest, ...formParams } = params
+  Object.keys(formParams).forEach((key) => {
+    let item = formParams[key as keyof typeof formParams]
     item = typeof item === 'number' ? String(item) : item
     data.append(key, item)
   })
@@ -39,7 +40,7 @@ async function request(params: UploadParams) {
   //   return true
   // }
 
-  const result = await params.ajaxRequest({
+  const result = await ajaxRequest<{ code: number }>({
     data,
     url: 'https://console-mock.apipost.cn/mock/f233ab29-8e89-4f8d-ab06-c04e42cea621/slice_upload',
   })

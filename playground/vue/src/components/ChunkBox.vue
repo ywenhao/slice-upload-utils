@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { DownloadStatus, UploadStatus } from '../../../../src'
+import type { SliceDownloadStatus, SliceUploadStatus } from '../../../../src'
 import type { RequestStatus } from '../../../../src/utils/ajax'
 import DoneImg from '../done.svg'
 
@@ -13,7 +13,7 @@ defineProps<{
   isUpload?: boolean
   chunks: Chunks[]
   progress: number
-  status: UploadStatus | DownloadStatus
+  status: SliceUploadStatus | SliceDownloadStatus
 }>()
 
 const emit = defineEmits<{
@@ -25,30 +25,24 @@ const emit = defineEmits<{
 
 function handleSelectFile(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
-  file && emit('selectFile', file)
+  if (file) emit('selectFile', file)
 }
 </script>
 
 <template>
   <div class="box">
-    <input v-if="isUpload" type="file" @change="handleSelectFile">
+    <input v-if="isUpload" type="file" @change="handleSelectFile" />
     <div class="actions">
-      <button @click="emit('start')">
-        开始
-      </button>
-      <button class="primary" @click="emit('pause')">
-        暂停
-      </button>
-      <button class="danger" @click="emit('cancel')">
-        取消
-      </button>
+      <button @click="emit('start')">开始</button>
+      <button class="primary" @click="emit('pause')">暂停</button>
+      <button class="danger" @click="emit('cancel')">取消</button>
     </div>
     <div>总进度：{{ Math.ceil(progress) }} {{ status }}</div>
     <div class="chunk-box">
       <div v-for="item in chunks" :key="item.index" class="chunk-item">
         <div class="chunk">
           <div class="progress" :style="{ height: `${item.progress.toFixed(2)}%` }" />
-          <img v-show="item.status === 'success'" class="icon-done" :src="DoneImg" alt="">
+          <img v-show="item.status === 'success'" class="icon-done" :src="DoneImg" alt="" />
         </div>
         <div class="index">
           {{ item.index }}

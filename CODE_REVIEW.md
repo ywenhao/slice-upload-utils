@@ -12,6 +12,9 @@
 - `src/index.ts:L1`: React/Vue 调用缺少明确子入口。新增 `./vue` 和 `./react` exports；主入口保留 Vue hooks 以兼容旧用法。
 - `tsconfig.json:L1`: typecheck scanned `playground/vue` without Vue SFC declarations and failed before library code was checked. Limit the root typecheck to library/test/config files.
 - `test/index.test.ts:L1`: previous test suite only asserted `1 === 1`. Add upload, download, merge, error, pre-verify, and pool behavior coverage.
+- `src/upload.ts:L306` / `src/download.ts:L232`: active pause/cancel could abort XHR but still let the rejected request path mark the chunk as `error`. Return early while stopped so the public status stays `pause` or `cancel`.
+- `playground/vue/src/components/ChunkBox.vue:L2`: Vue SFC type checking caught stale `UploadStatus` / `DownloadStatus` imports. Use the exported `SliceUploadStatus` and `SliceDownloadStatus` names.
+- `.github/workflows/ci.yml:L20`: CI still targeted Node 16/18/18.x and used the removed `ni` flow. Pin CI and release workflows to Node 22 with direct `pnpm` commands.
 
 ## Changes
 
@@ -22,10 +25,14 @@
 - Refactored Vue hooks to avoid declaration-order hazards and destroy instances on unmount.
 - Refactored request option typing into `src/request.ts`.
 - Removed circular imports through `src/index.ts` inside core modules.
+- Expanded tests into focused suites for core upload/download behavior, XHR handling, concurrent chunk-bound requests, package entrypoints, and React/Vue hooks.
+- Added Vue SFC type checking through `pnpm typecheck:vue` and `playground/vue`'s `vue-tsc --noEmit` script.
+- Updated GitHub Actions to Node 22, `pnpm/action-setup@v4`, `actions/setup-node@v4`, and single-threaded Vitest runs for CI stability.
 
 ## Verification
 
 - `pnpm typecheck`
 - `pnpm lint`
-- `pnpm exec oxfmt --check src test package.json tsconfig.json tsdown.config.ts .oxlintrc.json .oxfmtrc.json .vscode/settings.json`
+- `pnpm exec oxfmt --check .github test src package.json playground/vue/package.json playground/vue/src tsconfig.json tsdown.config.ts .oxlintrc.json .oxfmtrc.json .vscode/settings.json CODE_REVIEW.md README.md`
 - `pnpm test -- --run`
+- `pnpm build`

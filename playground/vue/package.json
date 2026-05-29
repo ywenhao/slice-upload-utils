@@ -1,10 +1,11 @@
 {
   "name": "playground",
-  "type": "module",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "vue-tsc --noEmit",
     "build": "vue-tsc && vite build",
     "preview": "vite preview"
   },

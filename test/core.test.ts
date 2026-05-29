@@ -1,0 +1,350 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  AjaxRequestError,
+  SliceDownload,
+  SliceUpload,
+  defineSliceDownload,
+  defineSliceUpload,
+  getCustomChunkHash,
+  getHashChunks,
+  getPreFile,
+  mergeFile,
+  saveFile,
+} from '../src'
+import type { DownloadFinishParams, UploadFinishParams, UploadParams } from '../src'
+import { promisePool } from '../src/utils/pool'
+import { createFile, FakeXMLHttpRequest, sleep, stubUrl, waitFor } from './helpers'
+
+describe('exports', () => {
+  it('exports core classes and factories', () => {
+    expect(SliceUpload).toBeTypeOf('function')
+    expect(SliceDownload).toBeTypeOf('function')
+    expect(defineSliceUpload).toBeTypeOf('function')
+    expect(defineSliceDownload).toBeTypeOf('function')
+  })
+})
+
+describe('promisePool', () => {
+  it('waits for the last running batch before resolving', async () => {
+    const done: number[] = []
+
+    await promisePool({
+      limit: 2,
+      promiseList: [
+        async () => {
+          await sleep(5)
+          done.push(1)
+        },
+        async () => {
+          await sleep(1)
+          done.push(2)
+        },
+        async () => {
+          await sleep(1)
+          done.push(3)
+        },
+      ],
+    })
+
+    expect(done.sort()).toEqual([1, 2, 3])
+  })
+
+  it('stops scheduling new tasks when beStop returns true', async () => {
+    const done: number[] = []
+
+    await promisePool({
+      limit: 1,
+      beStop: () => done.length === 1,
+      promiseList: [async () => done.push(1), async () => done.push(2)],
+    })
+
+    expect(done).toEqual([1])
+  })
+})
+
+describe('hash and chunk helpers', () => {
+  it('uses the original file as the pre-file for small files', () => {
+    const file = createFile('abc')
+
+    expect(getPreFile(file, 10)).toBe(file)
+  })
+
+  it('creates deterministic custom chunk hashes', () => {
+    expect(getCustomChunkHash('file-hash', 2, 1)).toBe(getCustomChunkHash('file-hash', 2, 1))
+    expect(getCustomChunkHash('file-hash', 2, 1)).not.toBe(getCustomChunkHash('file-hash', 2, 2))
+  })
+
+  it('chunks small files without using worker paths', async () => {
+    const file = createFile('abcd')
+    const result = await getHashChunks({
+      file,
+      chunkSize: 10,
+      realChunkHash: false,
+      realPreHash: false,
+    })
+
+    expect(result.fileChunks).toHaveLength(1)
+    expect(result.fileChunks[0]!.chunk).toBe(file)
+    expect(result.fileChunks[0]!.chunkHash).toBe(result.preHash)
+  })
+})
+
+describe('SliceUpload', () => {
+  it('uploads chunks and exposes ajaxRequest as a non-enumerable helper', async () => {
+    const file = createFile('abcdef')
+    const upload = defineSliceUpload({ file, chunkSize: 2, poolCount: 2 })
+    const seenIndexes: number[] = []
+    const progress: number[] = []
+    const finish = vi.fn<[UploadFinishParams], void>()
+
+    upload.on('progress', (event) => progress.push(event.progress))
+    upload.on('finish', finish)
+    upload.setUploadRequest(async (params) => {
+      seenIndexes.push(params.index)
+      expect(Object.keys(params)).not.toContain('ajaxRequest')
+    })
+
+    await upload.start()
+
+    expect(seenIndexes.sort()).toEqual([0, 1, 2])
+    expect(upload.status).toBe('success')
+    expect(upload.progress).toBe(100)
+    expect(progress.at(-1)).toBe(100)
+    expect(finish).toHaveBeenCalledOnce()
+  })
+
+  it('marks pre-verified chunks as success and only uploads missing chunks', async () => {
+    const file = createFile('abcdef')
+    const upload = defineSliceUpload({ file, chunkSize: 2, poolCount: 1 })
+    const uploaded: number[] = []
+
+    upload.setPreVerifyRequest(async () => {
+      const { chunks } = upload.getData()
+      return [chunks[0]!.chunkHash, chunks[2]!.chunkHash]
+    })
+    upload.setUploadRequest(async (params) => {
+      uploaded.push(params.index)
+    })
+
+    await upload.start()
+
+    expect(uploaded).toEqual([1])
+    expect(upload.status).toBe('success')
+    expect(upload.getData().chunks.every((chunk) => chunk.progress === 100)).toBe(true)
+  })
+
+  it('treats preVerify true as a complete upload', async () => {
+    const file = createFile('abcdef')
+    const upload = defineSliceUpload({ file, chunkSize: 2 })
+    const request = vi.fn<[UploadParams], Promise<void>>()
+    const finish = vi.fn<[UploadFinishParams], void>()
+
+    upload.on('finish', finish)
+    upload.setPreVerifyRequest(async () => true)
+    upload.setUploadRequest(request)
+
+    await upload.start()
+
+    expect(request).not.toHaveBeenCalled()
+    expect(upload.status).toBe('success')
+    expect(finish).toHaveBeenCalled()
+  })
+
+  it('emits an AjaxRequestError when a chunk request returns false', async () => {
+    const file = createFile('abcd')
+    const upload = defineSliceUpload({ file, chunkSize: 2 })
+    const error = vi.fn<[unknown], void>()
+
+    upload.on('error', error)
+    upload.setUploadRequest(async (params) => params.index !== 1)
+
+    await upload.start()
+
+    expect(upload.status).toBe('error')
+    expect(error).toHaveBeenCalledWith(expect.any(AjaxRequestError))
+  })
+
+  it('validates required file and request before starting', async () => {
+    await expect(defineSliceUpload().start()).rejects.toThrow('file is required')
+    await expect(defineSliceUpload({ file: createFile('') }).start()).rejects.toThrow(
+      'uploadRequestInstance is required',
+    )
+  })
+
+  it('pauses an in-flight upload and resets requestable chunks on cancel', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const upload = defineSliceUpload({ file: createFile('abcd'), chunkSize: 2, poolCount: 1 })
+    const pause = vi.fn<[], void>()
+
+    upload.on('pause', pause)
+    upload.setUploadRequest((params) => params.ajaxRequest({ url: '/upload' }))
+
+    const start = upload.start()
+    await waitFor(() => expect(FakeXMLHttpRequest.instances[0]).toBeDefined())
+    await waitFor(() => expect(upload.status).toBe('uploading'))
+    FakeXMLHttpRequest.instances[0]!.uploadProgress(1, 2)
+    upload.pause()
+    await start
+
+    expect(pause).toHaveBeenCalledOnce()
+    expect(upload.status).toBe('pause')
+    expect(upload.getData().chunks[0]!.status).toBe('pause')
+
+    upload.cancel()
+
+    expect(upload.status).toBe('cancel')
+    expect(upload.progress).toBe(0)
+    expect(upload.getData().chunks.every((chunk) => chunk.progress === 0)).toBe(true)
+  })
+})
+
+describe('SliceDownload', () => {
+  beforeEach(() => {
+    stubUrl()
+  })
+
+  it('downloads chunks, merges them, and emits finish', async () => {
+    const download = defineSliceDownload({
+      autoSave: false,
+      chunkSize: 2,
+      fileSize: 5,
+      filename: 'out.txt',
+      fileType: 'text/plain',
+      poolCount: 2,
+    })
+    const finish = vi.fn<[DownloadFinishParams], void>()
+
+    download.on('finish', finish)
+    download.setDownloadRequest(async (params) => {
+      expect(Object.keys(params)).not.toContain('ajaxRequest')
+      const content = ['ab', 'cd', 'e'][params.index]
+      return new Blob([content!], { type: params.fileType })
+    })
+
+    await download.start()
+
+    expect(download.status).toBe('success')
+    expect(download.progress).toBe(100)
+    expect(finish).toHaveBeenCalledOnce()
+    const file = finish.mock.calls[0]![0].file as File
+    expect(file.name).toBe('out.txt')
+    expect(await file.text()).toBe('abcde')
+  })
+
+  it('resets chunks when canceled', async () => {
+    const download = defineSliceDownload({
+      autoSave: false,
+      chunkSize: 2,
+      fileSize: 4,
+      filename: 'out.txt',
+    })
+    download.setDownloadRequest(async () => new Blob(['ok']))
+
+    await download.start()
+    download.cancel()
+
+    expect(download.status).toBe('cancel')
+    expect(download.progress).toBe(0)
+    expect(download.getData().chunks.every((chunk) => chunk.progress === 0)).toBe(true)
+  })
+
+  it('updates file options before starting', async () => {
+    const download = defineSliceDownload({ autoSave: false })
+    download.setDownloadRequest(async () => new Blob(['ok']))
+
+    download.setFileOptions({ filename: 'later.txt', fileSize: 2, fileType: 'text/plain' })
+    await download.start()
+
+    expect(download.status).toBe('success')
+  })
+
+  it('validates required download options before starting', async () => {
+    await expect(defineSliceDownload({}).start()).rejects.toThrow('filename is required')
+
+    const missingSize = defineSliceDownload({ filename: 'a.txt' })
+    missingSize.setDownloadRequest(async () => new Blob(['ok']))
+    await expect(missingSize.start()).rejects.toThrow('fileSize is required')
+
+    await expect(defineSliceDownload({ filename: 'a.txt', fileSize: 1 }).start()).rejects.toThrow(
+      'downloadRequestInstance is required',
+    )
+  })
+
+  it('pauses an in-flight download and reports paused chunk state', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const download = defineSliceDownload({
+      autoSave: false,
+      chunkSize: 2,
+      fileSize: 4,
+      filename: 'out.txt',
+      poolCount: 1,
+    })
+    const pause = vi.fn<[], void>()
+
+    download.on('pause', pause)
+    download.setDownloadRequest((params) => params.ajaxRequest({ url: '/download' }))
+
+    const start = download.start()
+    await waitFor(() => expect(FakeXMLHttpRequest.instances[0]).toBeDefined())
+    await waitFor(() => expect(download.status).toBe('downloading'))
+    FakeXMLHttpRequest.instances[0]!.progress(1, 2)
+    download.pause()
+    await start
+
+    expect(pause).toHaveBeenCalledOnce()
+    expect(download.status).toBe('pause')
+    expect(download.getData().chunks[0]!.status).toBe('pause')
+  })
+
+  it('marks a chunk as error when request does not return a Blob', async () => {
+    const download = defineSliceDownload({
+      autoSave: false,
+      fileSize: 2,
+      filename: 'out.txt',
+    })
+    const error = vi.fn<[unknown], void>()
+
+    download.on('error', error)
+    download.setDownloadRequest(async () => false)
+    await download.start()
+
+    expect(download.status).toBe('error')
+    expect(error).toHaveBeenCalledWith(expect.any(AjaxRequestError))
+  })
+})
+
+describe('file helpers', () => {
+  beforeEach(() => {
+    stubUrl()
+  })
+
+  it('keeps filename, type, and content order when merging', async () => {
+    const file = mergeFile([new Blob(['a']), new Blob(['b'])], 'merged.txt', 'text/plain')
+
+    expect(file.name).toBe('merged.txt')
+    expect(file.type).toBe('text/plain')
+    expect(await file.text()).toBe('ab')
+  })
+
+  it('saves files through an anchor download', () => {
+    const click = vi.fn<[], void>()
+    const remove = vi.fn<[], void>()
+    const anchor = {
+      click,
+      download: '',
+      href: '',
+      remove,
+    } as unknown as HTMLAnchorElement
+    const createElement = vi.spyOn(document, 'createElement').mockReturnValue(anchor)
+
+    saveFile(new Blob(['a']), 'a.txt')
+
+    expect(createElement).toHaveBeenCalledWith('a')
+    expect(anchor.download).toBe('a.txt')
+    expect(click).toHaveBeenCalledOnce()
+    expect(remove).toHaveBeenCalledOnce()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test')
+  })
+})
