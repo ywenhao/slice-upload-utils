@@ -1,52 +1,61 @@
 {
   "name": "slice-upload-utils",
-  "type": "module",
   "version": "0.0.29",
-  "packageManager": "pnpm@8.6.6",
   "description": "A library for slice upload file and download.",
-  "author": "Ywenhao <actions.win@foxmail.com>",
-  "license": "MIT",
-  "funding": "https://github.com/sponsors/ywenhao",
+  "keywords": [
+    "big-file",
+    "file",
+    "file-chunk",
+    "slice",
+    "slice-upload",
+    "upload",
+    "分片上传",
+    "大文件",
+    "文件上传",
+    "文件下载"
+  ],
   "homepage": "https://github.com/ywenhao/slice-upload-utils#readme",
+  "bugs": "https://github.com/ywenhao/slice-upload-utils/issues",
+  "license": "MIT",
+  "author": "Ywenhao <actions.win@foxmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ywenhao/slice-upload-utils.git"
   },
-  "bugs": "https://github.com/ywenhao/slice-upload-utils/issues",
-  "keywords": [
-    "file",
-    "slice",
-    "upload",
-    "分片上传",
-    "大文件",
-    "big-file",
-    "slice-upload",
-    "文件上传",
-    "文件下载",
-    "file-chunk"
-  ],
-  "sideEffects": false,
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.cjs",
-      "import": "./dist/index.mjs"
-    }
-  },
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "funding": "https://github.com/sponsors/ywenhao",
   "files": [
     "dist"
   ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.mjs"
+    },
+    "./react": {
+      "types": "./dist/react.d.mts",
+      "require": "./dist/react.cjs",
+      "import": "./dist/react.mjs"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.mts",
+      "require": "./dist/vue.cjs",
+      "import": "./dist/vue.mjs"
+    }
+  },
   "scripts": {
     "dev": "pnpm -C playground/vue dev",
-    "build": "unbuild",
-    "stub": "unbuild --stub",
-    "lint": "eslint .",
+    "build": "tsdown",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint src test --deny-warnings",
     "prepublishOnly": "pnpm build",
     "release": "bumpp && npm publish",
-    "start": "esno src/index.ts",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -55,24 +64,37 @@
     "vue": "^3.3.4"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^0.39.7",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
     "@types/spark-md5": "^3.0.2",
     "bumpp": "^9.1.1",
-    "eslint": "^8.44.0",
-    "esno": "^0.16.3",
+    "happy-dom": "^20.9.0",
     "lint-staged": "^13.2.3",
+    "oxfmt": "^0.52.0",
+    "oxlint": "^1.67.0",
     "pnpm": "^8.6.6",
-    "rimraf": "^5.0.1",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "simple-git-hooks": "^2.8.1",
+    "tsdown": "^0.22.1",
     "typescript": "^5.1.6",
-    "unbuild": "^1.2.1",
     "vite": "^4.4.2",
     "vitest": "^0.33.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged"
   },
   "lint-staged": {
-    "*": "eslint --fix"
-  }
+    "*.{js,jsx,ts,tsx,json,md,vue}": "oxfmt",
+    "*.{js,jsx,ts,tsx,vue}": "oxlint --fix"
+  },
+  "packageManager": "pnpm@8.6.6"
 }

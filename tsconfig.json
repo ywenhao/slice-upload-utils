@@ -3,7 +3,7 @@
     "target": "ESNext",
     "module": "esnext",
     "lib": ["esnext", "dom"],
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "strict": true,
     "strictNullChecks": true,
@@ -11,5 +11,7 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "types": ["vite/client"]
-  }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "tsdown.config.ts"],
+  "exclude": ["dist", "node_modules", "playground"]
 }

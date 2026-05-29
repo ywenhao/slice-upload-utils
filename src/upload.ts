@@ -1,9 +1,11 @@
+import type { RequestOptions } from './request'
+import type { AjaxRequestOptions, CustomXHR } from './utils/ajax'
+import type { FileChunk, SliceUploadOptions, SliceUploadStatus } from './types'
+import type { UploadEventKey, UploadEventType } from './types/upload/event'
 import { AjaxRequestError, ajaxRequest } from './utils/ajax'
+import { getHashChunks } from './utils/chunk'
 import { Emitter } from './utils/emitter'
 import { promisePool } from './utils/pool'
-import type { AjaxRequestOptions, CustomXHR, RequestHeaders, RequestMethod } from './utils/ajax'
-import { getHashChunks } from '.'
-import type { FileChunk, SliceUploadOptions, SliceUploadStatus, UploadEventKey, UploadEventType } from '.'
 
 export interface UploadParams {
   chunk: File | Blob
@@ -12,6 +14,7 @@ export interface UploadParams {
   preHash: string
   filename: string
   chunkHash: string
+  ajaxRequest: <D = any>(options: RequestOptions) => Promise<D>
 }
 
 export interface PreVerifyUploadParams {
@@ -24,18 +27,6 @@ export interface PreVerifyUploadParams {
 export type UploadRequest = (params: UploadParams) => Promise<boolean | void>
 
 export type PreVerifyUploadRequest = (params: PreVerifyUploadParams) => Promise<string[] | boolean>
-
-export interface RequestOptions {
-  url: string
-  /**
-   * @default 'POST'
-   */
-  method?: RequestMethod
-  data: any
-  headers?: RequestHeaders
-  timeout?: number
-  withCredentials?: boolean
-}
 
 export interface SliceUploadFileChunk extends FileChunk {
   status: SliceUploadStatus
@@ -99,7 +90,7 @@ export class SliceUpload {
    * @returns
    */
   setFile(file: File) {
-    file && this.reset()
+    if (file) this.reset()
     this.file = file
     return this
   }
@@ -153,8 +144,21 @@ export class SliceUpload {
     const { timeout } = this
 
     return new Promise<D>((resolve, reject) => {
-      const chunk = this.findSliceFileChunk(this.currentRequestChunkHash!)!
-      const idx = this.sliceFileChunks.findIndex(v => v.chunkHash === chunk.chunkHash)
+      const chunkHash = options.chunkHash ?? this.currentRequestChunkHash
+      const chunk = chunkHash ? this.findSliceFileChunk(chunkHash) : undefined
+      if (!chunk) {
+        reject(
+          new AjaxRequestError(
+            'upload chunk is not found',
+            700,
+            options.method || 'POST',
+            options.url,
+          ),
+        )
+        return
+      }
+
+      const idx = this.sliceFileChunks.findIndex((v) => v.chunkHash === chunk.chunkHash)
 
       const retryFn = () => {
         chunk.retryCount++
@@ -162,8 +166,7 @@ export class SliceUpload {
       }
 
       const abortFn = () => {
-        if (this.stop)
-          this.xhr[idx]!.abort()
+        if (this.stop) this.xhr[idx]!.abort()
         return this.stop
       }
       const ajaxRequestOptions: AjaxRequestOptions = {
@@ -179,15 +182,15 @@ export class SliceUpload {
           abortFn()
         },
         onAbort: (evt) => {
-          if (chunk.progress !== 100)
-            chunk.status = 'ready'
+          if (chunk.progress !== 100) chunk.status = 'ready'
 
           reject(evt)
         },
         onError: (evt) => {
           // 重试
           if (chunk.retryCount < this.retryCount) {
-            this.retryDelay > 0 ? setTimeout(() => retryFn(), this.retryDelay) : retryFn()
+            if (this.retryDelay > 0) setTimeout(() => retryFn(), this.retryDelay)
+            else retryFn()
             return
           }
           chunk.status = 'error'
@@ -198,17 +201,14 @@ export class SliceUpload {
           resolve(evt)
         },
         onUploadProgress: (evt) => {
-          if (abortFn())
-            return
+          if (abortFn()) return
 
           const progress = chunk.progress
           // 防止进度条出现后退
-          if (progress < evt.percent)
-            chunk.progress = evt.percent
+          if (progress < evt.percent) chunk.progress = evt.percent
 
           // 在接口返回之前，进度条不得超过99
-          if (evt.percent >= 99)
-            chunk.progress = 99
+          if (evt.percent >= 99) chunk.progress = 99
 
           if (evt.percent !== 100 && !this.stop && chunk.status !== 'error')
             chunk.status = 'uploading'
@@ -218,7 +218,7 @@ export class SliceUpload {
       }
 
       this.xhr[idx] = ajaxRequest(ajaxRequestOptions)
-      !this.stop && this.xhr[idx]!.request()
+      if (!this.stop) this.xhr[idx]!.request()
     })
   }
 
@@ -236,14 +236,18 @@ export class SliceUpload {
    * 开始上传
    */
   async start() {
-    if (['uploading', 'success'].includes(this.status))
-      return
+    if (['uploading', 'success'].includes(this.status)) return
 
     this.check()
 
     if (!this.preHash && !this.sliceFileChunks.length) {
       const { file, chunkSize, realPreHash, realChunkHash } = this
-      const { preHash, fileChunks } = await getHashChunks({ file: file!, chunkSize, realPreHash, realChunkHash })
+      const { preHash, fileChunks } = await getHashChunks({
+        file: file!,
+        chunkSize,
+        realPreHash,
+        realChunkHash,
+      })
       this.preHash = preHash
 
       this.initSliceFileChunks(fileChunks)
@@ -256,17 +260,19 @@ export class SliceUpload {
       const { preHash, file, chunkSize } = this
       let result: string[] = []
       try {
-        const checkList = await this.preVerifyRequestInstance({ preHash: preHash!, filename: file!.name!, chunkSize, chunkTotal: this.sliceFileChunks.length })
-        if (checkList === true)
-          result = _sliceFileChunks.map(v => v.chunkHash)
-        else if (Array.isArray(checkList))
-          result = checkList
-      }
-      catch (e) {
+        const checkList = await this.preVerifyRequestInstance({
+          preHash: preHash!,
+          filename: file!.name!,
+          chunkSize,
+          chunkTotal: this.sliceFileChunks.length,
+        })
+        if (checkList === true) result = _sliceFileChunks.map((v) => v.chunkHash)
+        else if (Array.isArray(checkList)) result = checkList
+      } catch (e) {
         console.error('preVerifyRequest is fail', e)
         result = []
       }
-      _sliceFileChunks = _sliceFileChunks.filter(v => !result.includes(v.chunkHash))
+      _sliceFileChunks = _sliceFileChunks.filter((v) => !result.includes(v.chunkHash))
       this.sliceFileChunks.forEach((v) => {
         if (result.includes(v.chunkHash)) {
           v.status = 'success'
@@ -279,18 +285,17 @@ export class SliceUpload {
     this.isCancel = false
     this.isPause = false
 
-    const failChunks = this.sliceFileChunks.filter(v => v.status === 'error')
-    failChunks.forEach(v => v.status = 'ready')
+    const failChunks = this.sliceFileChunks.filter((v) => v.status === 'error')
+    failChunks.forEach((v) => (v.status = 'ready'))
 
     this.emit('start')
     this.emitProgress()
 
-    if (!_sliceFileChunks.length)
-      return
+    if (!_sliceFileChunks.length) return
 
     const { promiseList } = this.createPromiseList(_sliceFileChunks)
 
-    promisePool({
+    return promisePool({
       promiseList,
       limit: this.poolCount,
       beStop: () => this.stop || !this.sliceFileChunks.length,
@@ -302,25 +307,40 @@ export class SliceUpload {
 
   private emitFinish() {
     if (this.status === 'success')
-      this.emit('finish', { preHash: this.preHash!, filename: this.file?.name!, file: this.file!, chunkTotal: this.sliceFileChunks.length, chunkSize: this.chunkSize })
+      this.emit('finish', {
+        preHash: this.preHash!,
+        filename: this.file!.name,
+        file: this.file!,
+        chunkTotal: this.sliceFileChunks.length,
+        chunkSize: this.chunkSize,
+      })
   }
 
   private createPromiseList(chunks: SliceUploadFileChunk[]) {
-    const beUploadChunks = chunks.filter(v => v.status === 'ready')
+    const beUploadChunks = chunks.filter((v) => v.status === 'ready')
     const len = beUploadChunks.length
     const promiseList = beUploadChunks.map((v) => {
       const { chunk, index, chunkHash } = v
       const sliceChunk = this.findSliceFileChunk(chunkHash)!
-      const params: UploadParams = { chunk, index, chunkHash, preHash: this.preHash!, filename: this.file?.name!, chunkTotal: this.sliceFileChunks.length }
+      const params = {
+        chunk,
+        index,
+        chunkHash,
+        preHash: this.preHash!,
+        filename: this.file!.name,
+        chunkTotal: this.sliceFileChunks.length,
+      } as UploadParams
+      Object.defineProperty(params, 'ajaxRequest', {
+        enumerable: false,
+        value: <D = any>(options: RequestOptions) => this.ajaxRequest<D>({ ...options, chunkHash }),
+      })
       return async () => {
         let flag = true
         try {
           this.currentRequestChunkHash = chunkHash
           const result = await this.uploadRequestInstance!(params)
-          if (result === false)
-            flag = false
-        }
-        catch (e) {
+          if (result === false) flag = false
+        } catch {
           flag = false
         }
 
@@ -330,13 +350,15 @@ export class SliceUpload {
           sliceChunk.retryCount = 0
           sliceChunk.progress = 100
           this.emitProgress()
-        }
-        else {
+        } else {
           sliceChunk.status = 'error'
-          this.emit('error', new AjaxRequestError(`chunk ${sliceChunk.index} uploaded, request fail`, 700, '', ''))
+          this.emit(
+            'error',
+            new AjaxRequestError(`chunk ${sliceChunk.index} uploaded, request fail`, 700, '', ''),
+          )
         }
 
-        this.currentRequestChunkHash = null
+        if (this.currentRequestChunkHash === chunkHash) this.currentRequestChunkHash = null
         return flag
       }
     })
@@ -351,7 +373,10 @@ export class SliceUpload {
       retryCount: 0,
     }
 
-    this.sliceFileChunks = (fileChunks ?? this.sliceFileChunks).map(v => ({ ...v, ...initialSliceFileChunkOther }))
+    this.sliceFileChunks = (fileChunks ?? this.sliceFileChunks).map((v) => ({
+      ...v,
+      ...initialSliceFileChunkOther,
+    }))
   }
 
   private _progress = -1
@@ -367,7 +392,7 @@ export class SliceUpload {
    * 取消上传
    */
   abort() {
-    this.xhr.forEach(v => v && v.abort())
+    this.xhr.forEach((v) => v && v.abort())
     this.xhr = []
   }
 
@@ -394,16 +419,13 @@ export class SliceUpload {
   }
 
   findSliceFileChunk(chunkHash: string) {
-    return this.sliceFileChunks.find(v => v.chunkHash === chunkHash)
+    return this.sliceFileChunks.find((v) => v.chunkHash === chunkHash)
   }
 
   private check() {
-    if (!this.file)
-      throw new Error('file is required')
-    if (!this.uploadRequestInstance)
-      throw new Error('uploadRequestInstance is required')
-    if (!this.file?.size)
-      throw new Error('file size is 0')
+    if (!this.file) throw new Error('file is required')
+    if (!this.uploadRequestInstance) throw new Error('uploadRequestInstance is required')
+    if (!this.file?.size) throw new Error('file size is 0')
   }
 
   /**
@@ -414,14 +436,13 @@ export class SliceUpload {
   }
 
   /**
-     * 获取分片，hash, file, chunks
-     */
+   * 获取分片，hash, file, chunks
+   */
   getData() {
     const { preHash, sliceFileChunks, file } = this
     const chunks = sliceFileChunks.map((v) => {
       let status = this.isCancel ? 'cancel' : this.isPause ? 'pause' : v.status
-      if (v.progress === 100 || v.progress === 0)
-        status = v.status
+      if (v.progress === 100 || v.progress === 0) status = v.status
 
       return {
         status,
@@ -441,11 +462,11 @@ export class SliceUpload {
   }
 
   get isRealPreHash() {
-    return this.file?.size! <= this.chunkSize || this.realPreHash
+    return (this.file?.size ?? 0) <= this.chunkSize || this.realPreHash
   }
 
   get isRealChunkHash() {
-    return this.file?.size! <= this.chunkSize || this.realChunkHash
+    return (this.file?.size ?? 0) <= this.chunkSize || this.realChunkHash
   }
 
   private get stop() {
@@ -458,9 +479,8 @@ export class SliceUpload {
   get progress() {
     const chunks = this.sliceFileChunks
     const len = chunks.length
-    if (!len)
-      return 0
-    const progressTotal = chunks.map(v => v.progress).reduce((pre, cur) => pre + cur, 0)
+    if (!len) return 0
+    const progressTotal = chunks.map((v) => v.progress).reduce((pre, cur) => pre + cur, 0)
     return progressTotal / len
   }
 
@@ -476,23 +496,17 @@ export class SliceUpload {
    */
   get status(): SliceUploadStatus {
     const chunks = this.sliceFileChunks
-    if (!chunks.length)
-      return 'ready'
+    if (!chunks.length) return 'ready'
 
-    if (this.isCancel)
-      return 'cancel'
+    if (this.isCancel) return 'cancel'
 
-    if (this.isPause)
-      return 'pause'
+    if (this.isPause) return 'pause'
 
-    if (chunks.some(v => v.status === 'uploading'))
-      return 'uploading'
+    if (chunks.some((v) => v.status === 'uploading')) return 'uploading'
 
-    if (chunks.every(v => v.status === 'success'))
-      return 'success'
+    if (chunks.every((v) => v.status === 'success')) return 'success'
 
-    if (chunks.some(v => v.status === 'error'))
-      return 'error'
+    if (chunks.some((v) => v.status === 'error')) return 'error'
 
     return 'ready'
   }

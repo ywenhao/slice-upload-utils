@@ -1,5 +1,5 @@
+import { getCustomFileHash, getFileHash } from './hash'
 import { preHashWorker } from './worker/preHash.worker'
-import { getCustomFileHash, getFileHash } from '.'
 
 /**
  * 取得hash值
@@ -21,8 +21,7 @@ export async function getPreHash(file: File, chunkSize: number) {
 }
 
 export function getPreFile(file: File, chunkSize: number) {
-  if (file.size <= chunkSize)
-    return file
+  if (file.size <= chunkSize) return file
   const size = 500 * 1024
   const mid = Math.ceil(file.size / 2)
   const last = file.size - size

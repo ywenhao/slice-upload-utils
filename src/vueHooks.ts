@@ -1,7 +1,12 @@
 import type { Ref } from 'vue'
-import { computed, nextTick, readonly, ref, watch } from 'vue'
-import type { DownloadEventType, DownloadRequest, PreVerifyUploadRequest, RequestOptions, SetDownloadFileOptions, SliceDownloadOptions, SliceDownloadStatus, SliceUploadOptions, SliceUploadStatus, UploadEventType, UploadRequest } from '.'
-import { defineSliceDownload, defineSliceUpload } from '.'
+import { computed, nextTick, onBeforeUnmount, readonly, ref, watch } from 'vue'
+import type { RequestOptions } from './request'
+import type { DownloadEventType, UploadEventType } from './types'
+import type { SliceDownloadStatus, SliceUploadOptions, SliceUploadStatus } from './types'
+import type { DownloadRequest, SetDownloadFileOptions, SliceDownloadOptions } from './download'
+import type { PreVerifyUploadRequest, UploadRequest } from './upload'
+import { defineSliceDownload } from './download'
+import { defineSliceUpload } from './upload'
 
 export interface SliceUploadChunk {
   status: SliceUploadStatus
@@ -23,22 +28,30 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
   const chunks = ref<SliceUploadChunk[]>([])
   const status = ref<SliceUploadStatus>('ready')
   const isFinish = computed(() => progress.value === 100)
-
-  const instance = defineSliceUpload({ ...options, file: options.file.value! })
-  options.preVerifyRequest && instance.setPreVerifyRequest(options.preVerifyRequest)
-
-  instance.setUploadRequest(options.request)
+  const { file, request, onError, onFinish, preVerifyRequest, ...sliceOptions } = options
+  const instance = defineSliceUpload({ ...sliceOptions, file: file.value || undefined })
 
   const setChunk = () => {
     const data = instance.getData()
     chunks.value = data.chunks
   }
 
-  watch(options.file, (file) => {
-    status.value = 'ready'
+  const syncStatus = () => {
+    status.value = instance.status
+    progress.value = instance.progress
+    setChunk()
+  }
+
+  if (preVerifyRequest) instance.setPreVerifyRequest(preVerifyRequest)
+
+  instance.setUploadRequest(request)
+
+  watch(file, (nextFile) => {
     progress.value = 0
     chunks.value = []
-    file && instance.setFile(file)
+    if (nextFile) instance.setFile(nextFile)
+    else instance.reset()
+    syncStatus()
   })
 
   watch(status, () => {
@@ -47,58 +60,50 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
 
   instance.on('progress', (params) => {
     progress.value = params.progress
+    status.value = instance.status
     setChunk()
   })
 
   instance.on('finish', (params) => {
-    status.value = 'success'
-    setChunk()
-    options.onFinish?.(params)
+    syncStatus()
+    onFinish?.(params)
   })
 
   instance.on('error', (error) => {
-    if (['uploading'].includes(status.value))
-      status.value = 'error'
-    setChunk()
-    if (status.value === 'error')
-      options.onError?.(error)
+    syncStatus()
+    if (status.value === 'error') onError?.(error)
   })
 
-  const setRequest = (request: UploadRequest) => {
-    instance.setUploadRequest(request)
+  const setRequest = (nextRequest: UploadRequest) => {
+    instance.setUploadRequest(nextRequest)
   }
 
   const start = async () => {
     await nextTick()
-    if (['success', 'uploading'].includes(status.value))
-      return
-    instance.start()
-    if (instance.hasFile)
-      status.value = 'uploading'
-    setChunk()
+    if (['success', 'uploading'].includes(status.value)) return
+    const task = instance.start()
+    syncStatus()
+    await task
+    syncStatus()
   }
 
   const pause = () => {
-    if (['success', 'cancel', 'pause', 'ready'].includes(status.value))
-      return
+    if (['success', 'cancel', 'pause', 'ready'].includes(status.value)) return
     instance.pause()
-    status.value = 'pause'
-    setChunk()
+    syncStatus()
   }
 
   const cancel = () => {
-    if (['cancel', 'ready'].includes(status.value))
-      return
+    if (['cancel', 'ready'].includes(status.value)) return
     instance.cancel()
-    status.value = 'cancel'
-    setChunk()
+    syncStatus()
   }
 
   const ajaxRequest = (params: RequestOptions) => instance.ajaxRequest(params)
 
-  // onBeforeUnmount(() => {
-  //   instance.destroy()
-  // })
+  onBeforeUnmount(() => {
+    instance.destroy()
+  })
 
   return {
     chunks,
@@ -134,15 +139,21 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
   const chunks = ref<SliceDownloadChunk[]>([])
   const status = ref<SliceDownloadStatus>('ready')
   const isFinish = computed(() => progress.value === 100)
-
-  const instance = defineSliceDownload({ ...options })
-
-  instance.setDownloadRequest(options.request)
+  const { request, onError, onFinish, ...sliceOptions } = options
+  const instance = defineSliceDownload(sliceOptions)
 
   const setChunk = () => {
     const data = instance.getData()
     chunks.value = data.chunks
   }
+
+  const syncStatus = () => {
+    status.value = instance.status
+    progress.value = instance.progress
+    setChunk()
+  }
+
+  instance.setDownloadRequest(request)
 
   watch(status, () => {
     setChunk()
@@ -150,56 +161,52 @@ export function useSliceDownload(options: UseSliceDownloadOptions) {
 
   instance.on('progress', (params) => {
     progress.value = params.progress
+    status.value = instance.status
     setChunk()
   })
 
   instance.on('finish', (params) => {
-    status.value = 'success'
-    setChunk()
-    options.onFinish?.(params)
+    syncStatus()
+    onFinish?.(params)
   })
 
   instance.on('error', (error) => {
-    if (['downloading'].includes(status.value))
-      status.value = 'error'
-    setChunk()
-    if (status.value === 'error')
-      options.onError?.(error)
+    syncStatus()
+    if (status.value === 'error') onError?.(error)
   })
 
-  const setRequest = (request: DownloadRequest) => {
-    instance.setDownloadRequest(request)
+  const setRequest = (nextRequest: DownloadRequest) => {
+    instance.setDownloadRequest(nextRequest)
   }
   const ajaxRequest = (params: RequestOptions) => instance.ajaxRequest(params)
-  const setFileOptions = (options: SetDownloadFileOptions) => instance.setFileOptions(options)
+  const setFileOptions = (nextOptions: SetDownloadFileOptions) => {
+    instance.setFileOptions(nextOptions)
+    syncStatus()
+  }
 
-  const start = () => {
-    if (['success', 'downloading'].includes(status.value))
-      return
-    instance.start()
-    status.value = 'downloading'
-    setChunk()
+  const start = async () => {
+    if (['success', 'downloading'].includes(status.value)) return
+    const task = instance.start()
+    syncStatus()
+    await task
+    syncStatus()
   }
 
   const pause = () => {
-    if (['success', 'cancel', 'pause', 'ready'].includes(status.value))
-      return
+    if (['success', 'cancel', 'pause', 'ready'].includes(status.value)) return
     instance.pause()
-    status.value = 'pause'
-    setChunk()
+    syncStatus()
   }
 
   const cancel = () => {
-    if (['cancel', 'ready'].includes(status.value))
-      return
+    if (['cancel', 'ready'].includes(status.value)) return
     instance.cancel()
-    status.value = 'cancel'
-    setChunk()
+    syncStatus()
   }
 
-  // onBeforeUnmount(() => {
-  //   instance.destroy()
-  // })
+  onBeforeUnmount(() => {
+    instance.destroy()
+  })
 
   return {
     chunks,

@@ -1,3 +1,18 @@
 {
-  "prettier.enable": false
+  "eslint.enable": false,
+  "prettier.enable": false,
+  "oxc.enable": true,
+  "oxc.enable.oxfmt": true,
+  "oxc.enable.oxlint": true,
+  "oxc.configPath": ".oxlintrc.json",
+  "oxc.fmt.configPath": ".oxfmtrc.json",
+  "oxc.lint.run": "onSave",
+  "oxc.fixKind": "safe_fix",
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.format.oxc": "always",
+    "source.fixAll.oxc": "always",
+    "source.fixAll.eslint": "never"
+  }
 }

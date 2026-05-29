@@ -1,6 +1,6 @@
 import SparkMD5 from 'spark-md5'
 import type { FileChunk, FileChunkParams } from '../../types'
-import { getCustomChunkHash } from '..'
+import { getCustomChunkHash } from '../hash'
 
 export async function chunkWorker(params: FileChunkParams) {
   const { chunkSize, file, realChunkHash, preHash: hash } = params
@@ -11,11 +11,9 @@ export async function chunkWorker(params: FileChunkParams) {
   let preHashSpark: SparkMD5.ArrayBuffer | undefined
   let chunkSpark: SparkMD5.ArrayBuffer | undefined
 
-  if (!hash)
-    preHashSpark = new SparkMD5.ArrayBuffer()
+  if (!hash) preHashSpark = new SparkMD5.ArrayBuffer()
 
-  if (realChunkHash)
-    chunkSpark = new SparkMD5.ArrayBuffer()
+  if (realChunkHash) chunkSpark = new SparkMD5.ArrayBuffer()
 
   for (let index = 0; index < chunkTotal; index++) {
     const start = index * chunkSize
@@ -24,8 +22,7 @@ export async function chunkWorker(params: FileChunkParams) {
     const arrayBuffer = await chunk.arrayBuffer()
 
     // 计算前值hash
-    if (!hash && preHashSpark)
-      preHashSpark.append(arrayBuffer)
+    if (!hash && preHashSpark) preHashSpark.append(arrayBuffer)
 
     // 计算分片hash
     let chunkHash = ''
@@ -41,7 +38,10 @@ export async function chunkWorker(params: FileChunkParams) {
 
   // 计算分片hash
   if (!realChunkHash)
-    fileChunks = fileChunks.map((v, index) => ({ ...v, chunkHash: getCustomChunkHash(preHash, chunkSize, index) }))
+    fileChunks = fileChunks.map((v, index) => ({
+      ...v,
+      chunkHash: getCustomChunkHash(preHash, chunkSize, index),
+    }))
 
   return { fileChunks, preHash }
 }

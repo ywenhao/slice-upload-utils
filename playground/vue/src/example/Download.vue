@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { DownloadParams } from '../../../../src'
-import { useSliceDownload } from '../../../../src'
+import { useSliceDownload } from '../../../../src/vue'
 import ChunkBox from '../components/ChunkBox.vue'
 
-const { instance, chunks, progress, status, start, pause, cancel, setFileOptions } = useSliceDownload({
+const { chunks, progress, status, start, pause, cancel, setFileOptions } = useSliceDownload({
   request,
   // onFinish,
 })
@@ -14,7 +14,7 @@ const filename = 'dance.mp4'
 // 下载请求函数
 async function request(params: DownloadParams) {
   // 下载请求data数据处理
-  const result = await instance.ajaxRequest({
+  const result = await params.ajaxRequest({
     data: { ...params, filename },
     url: `http://localhost:10010/download/${filename}`,
   })
@@ -22,7 +22,9 @@ async function request(params: DownloadParams) {
 }
 
 async function handleStart() {
-  const fileSize = await fetch(`http://localhost:10010/size/${filename}`).then(res => res.json()).then(res => +res.data)
+  const fileSize = await fetch(`http://localhost:10010/size/${filename}`)
+    .then((res) => res.json())
+    .then((res) => +res.data)
   setFileOptions({ filename, fileSize })
   start()
 }

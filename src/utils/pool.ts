@@ -1,12 +1,12 @@
-type PromiseFn = (...args: any) => Promise<any>
-type GetFirstParams<T> = T extends (...args: any[]) => any ? Parameters<T>[0] : never
+type PromiseFn = () => Promise<any>
+type PromiseResult<T extends PromiseFn> = Awaited<ReturnType<T>>
 
 interface PoolParams<T extends PromiseFn> {
   promiseList: T[]
   limit: number
   beStop?: () => boolean
-  resolve?: (res: ReturnType<T>) => void
-  reject?: (res: ReturnType<T> | Error) => void
+  resolve?: (res: PromiseResult<T>) => void
+  reject?: (res: unknown) => void
 }
 
 /**
@@ -16,32 +16,36 @@ interface PoolParams<T extends PromiseFn> {
  * @param resolve 单个Promise resolve
  * @param reject 单个Promise reject
  */
-export async function promisePool<T extends PromiseFn>(
-  params: PoolParams<T>,
-) {
+export async function promisePool<T extends PromiseFn>(params: PoolParams<T>) {
   const { promiseList, limit, resolve, reject } = params
-  const poolSet = new Set()
+  const poolSet = new Set<Promise<void>>()
+  const safeLimit = Math.max(1, Math.floor(limit))
 
   for (const promiseFn of promiseList) {
-    if (params.beStop?.())
-      return
+    if (params.beStop?.()) break
 
-    if (poolSet.size >= limit)
-      await Promise.race(poolSet).catch(e => e)
+    while (poolSet.size >= safeLimit) await Promise.race(poolSet)
 
-    const onfulfilled = (res: GetFirstParams<typeof resolve>) => {
+    if (params.beStop?.()) break
+
+    const onfulfilled = (res: PromiseResult<T>) => {
       resolve?.(res)
     }
 
-    const onrejected = (res: GetFirstParams<typeof reject>) => {
+    const onrejected = (res: unknown) => {
       reject?.(res)
+      if (!reject) throw res
     }
 
-    const promise = promiseFn()
+    let promise!: Promise<void>
+    promise = Promise.resolve()
+      .then(promiseFn)
+      .then(onfulfilled, onrejected)
+      .finally(() => {
+        poolSet.delete(promise)
+      })
     poolSet.add(promise)
-
-    promise.then(onfulfilled, onrejected).finally(() => {
-      poolSet.delete(promise)
-    })
   }
+
+  await Promise.all(poolSet)
 }

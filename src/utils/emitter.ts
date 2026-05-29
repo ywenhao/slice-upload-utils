@@ -8,8 +8,6 @@ interface DefaultEventType {
 export class Emitter<EventType extends DefaultEventType> {
   private eventsMap = new Map<keyof EventType, EventType[keyof EventType][]>()
 
-  constructor() {}
-
   /**
    * 绑定事件
    */
@@ -21,24 +19,26 @@ export class Emitter<EventType extends DefaultEventType> {
   }
 
   /**
-     * 触发事件
-     */
+   * 触发事件
+   */
   emit<Key extends keyof EventType>(eventName: Key, ...args: Parameters<EventType[Key]>) {
     const events = this.eventsMap.get(eventName) || []
-    events.forEach(cb => cb(...args))
+    events.slice().forEach((cb) => cb(...args))
     return this
   }
 
   /**
-     * 取消事件
-     */
+   * 取消事件
+   */
   off<Key extends keyof EventType>(eventName: Key, cb?: EventType[Key]) {
     if (!cb) {
-      this.eventsMap.set(eventName, [])
-    }
-    else {
+      this.eventsMap.delete(eventName)
+    } else {
       const events = this.eventsMap.get(eventName) || []
-      this.eventsMap.set(eventName, events.filter(v => v !== cb))
+      this.eventsMap.set(
+        eventName,
+        events.filter((v) => v !== cb),
+      )
     }
     return this
   }

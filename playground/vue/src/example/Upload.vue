@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { UploadParams } from '../../../../src'
-import { useSliceUpload } from '../../../../src'
+import { useSliceUpload } from '../../../../src/vue'
 import ChunkBox from '../components/ChunkBox.vue'
 
 // 上传的文件
 const uploadFile = ref<File>()
 
-const { instance, chunks, progress, status, start, pause, cancel } = useSliceUpload({
+const { chunks, progress, status, start, pause, cancel } = useSliceUpload({
   file: uploadFile,
   request,
   // onFinish,
@@ -39,7 +39,7 @@ async function request(params: UploadParams) {
   //   return true
   // }
 
-  const result = await instance.ajaxRequest({
+  const result = await params.ajaxRequest({
     data,
     url: 'https://console-mock.apipost.cn/mock/f233ab29-8e89-4f8d-ab06-c04e42cea621/slice_upload',
   })

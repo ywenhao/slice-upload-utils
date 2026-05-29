@@ -2,31 +2,26 @@
 
 [![NPM version](https://img.shields.io/npm/v/slice-upload-utils?color=a1b858&label=)](https://www.npmjs.com/package/slice-upload-utils)
 
-
 <p align="center">
   <img src="https://cdn.jsdelivr.net/gh/ywenhao/slice-upload-utils/des.png" />
 </p>
 
 ## 介绍
 
-* 本工具包含上传和下载功能。vite + vue的实现。
-
+- 本工具包含切片上传、切片下载、Vue hooks 和 React hooks。
 
   ### 上传
-
   - 包括切片上传，秒传，断点续传，暂停、取消。
 
   ### 下载
-
   - 切片下载，合并，暂停、取消。
 
   ### 上传hash计算
-
   - 为了优化计算hash时间，hash值计算分两种，一直是计算文件的真实MD5，一种是计算自定义hash值。
 
     ##### 自定义hash值：
 
-     :: **preHash**，采用抽样hash算法，截取file前段、中间和末段合成一个新的文件，和file.size一起计算的一个新的hash值。
+    :: **preHash**，采用抽样hash算法，截取file前段、中间和末段合成一个新的文件，和file.size一起计算的一个新的hash值。
 
     :: **chunkHash**，采用preHash结合chunkSize和该切片的index计算hash值。
 
@@ -38,29 +33,67 @@
 
   - 可以根据实例中的**isPreHash**和**isChunkHash**的值来判断当前是否计算的真实hash。
 
-
 ## 快速开始
 
- * 使用 pnpm 安装
+- 使用 pnpm 安装
 
-  ```shell
-pnpm add file-slice-upload
-  ```
+```shell
+pnpm add slice-upload-utils
+```
 
- ## 示例代码
+## 示例代码
+
 ### 上传
+
 [/playground/vue/src/example/Upload.vue](./playground/vue/src/example/Upload.vue)
+
 ### 下载
+
 [/playground/vue/src/example/Download.vue](./playground/vue/src/example/Download.vue)
 
 ### 下载文件后端代码
+
 [koa-download-demo](https://github.com/ywenhao/koa-download-demo)
 
 - 具体效果可以把代码仓库clone下来，pnpm dev一下。
 
 ## 调用说明
 
+### 入口
+
+```ts
+import { defineSliceDownload, defineSliceUpload } from 'slice-upload-utils'
+import { useSliceUpload as useVueSliceUpload } from 'slice-upload-utils/vue'
+import { useSliceUpload as useReactSliceUpload } from 'slice-upload-utils/react'
+```
+
+Vue hooks 仍保留在主入口导出；新代码推荐使用 `slice-upload-utils/vue` 让框架入口更明确。
+
 ### 上传
+
+推荐在 `request` 里使用 `params.ajaxRequest`。它已经绑定了当前分片，不需要在外层闭包里提前引用 `instance`。
+
+```ts
+import { useSliceUpload } from 'slice-upload-utils/vue'
+
+const { start, pause, cancel, chunks, progress, status } = useSliceUpload({
+  file,
+  async request(params) {
+    const data = new FormData()
+    Object.entries(params).forEach(([key, value]) => {
+      data.append(key, typeof value === 'number' ? String(value) : value)
+    })
+
+    const result = await params.ajaxRequest<{ code: number }>({
+      data,
+      url: '/slice_upload',
+    })
+
+    return result.code === 200
+  },
+})
+```
+
 ```ts
 export interface UseSliceUploadOptions {
   /**
@@ -122,6 +155,27 @@ export interface UseSliceUploadOptions {
 ```
 
 ### 下载
+
+```tsx
+import { useSliceDownload } from 'slice-upload-utils/react'
+
+function DownloadButton() {
+  const download = useSliceDownload({
+    filename: 'demo.zip',
+    fileSize: 1024 * 1024,
+    autoSave: true,
+    async request(params) {
+      return params.ajaxRequest<Blob>({
+        data: { index: params.index },
+        url: '/download',
+      })
+    },
+  })
+
+  return <button onClick={download.start}>下载</button>
+}
+```
+
 ```ts
 export interface UseSliceDownloadOptions {
   fileSize?: number
@@ -148,19 +202,19 @@ export interface UseSliceDownloadOptions {
    */
   poolCount?: number
   /**
-     * 请求失败后，重试次数
-     * @default 3
-     */
+   * 请求失败后，重试次数
+   * @default 3
+   */
   retryCount?: number
   /**
-     * 请求失败后，重试间隔时间
-     * @default 300
-     */
+   * 请求失败后，重试间隔时间
+   * @default 300
+   */
   retryDelay?: number
   /**
-     * 请求超时时间(15s)
-     * @default 15000
-     */
+   * 请求超时时间(15s)
+   * @default 15000
+   */
   timeout?: number
   /**
    * 上传请求函数
