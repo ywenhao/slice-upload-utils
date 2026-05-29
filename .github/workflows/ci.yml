@@ -39,7 +39,7 @@ jobs:
         run: pnpm lint
 
       - name: Test
-        run: pnpm test -- --run
+        run: pnpm exec vitest run --environment happy-dom --maxWorkers 1 --no-file-parallelism
 
       - name: Build
         run: pnpm build
@@ -71,4 +71,4 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Test
-        run: pnpm test -- --run
+        run: pnpm exec vitest run --environment happy-dom --maxWorkers 1 --no-file-parallelism
