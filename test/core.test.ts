@@ -11,7 +11,7 @@ import {
   mergeFile,
   saveFile,
 } from '../src'
-import type { DownloadFinishParams, UploadFinishParams, UploadParams } from '../src'
+import type { DownloadFinishParams, UploadFinishParams, UploadRequest } from '../src'
 import { promisePool } from '../src/utils/pool'
 import { createFile, FakeXMLHttpRequest, sleep, stubUrl, waitFor } from './helpers'
 
@@ -95,7 +95,7 @@ describe('SliceUpload', () => {
     const upload = defineSliceUpload({ file, chunkSize: 2, poolCount: 2 })
     const seenIndexes: number[] = []
     const progress: number[] = []
-    const finish = vi.fn<[UploadFinishParams], void>()
+    const finish = vi.fn<(params: UploadFinishParams) => void>()
 
     upload.on('progress', (event) => progress.push(event.progress))
     upload.on('finish', finish)
@@ -136,8 +136,8 @@ describe('SliceUpload', () => {
   it('treats preVerify true as a complete upload', async () => {
     const file = createFile('abcdef')
     const upload = defineSliceUpload({ file, chunkSize: 2 })
-    const request = vi.fn<[UploadParams], Promise<void>>()
-    const finish = vi.fn<[UploadFinishParams], void>()
+    const request = vi.fn<UploadRequest>()
+    const finish = vi.fn<(params: UploadFinishParams) => void>()
 
     upload.on('finish', finish)
     upload.setPreVerifyRequest(async () => true)
@@ -153,7 +153,7 @@ describe('SliceUpload', () => {
   it('emits an AjaxRequestError when a chunk request returns false', async () => {
     const file = createFile('abcd')
     const upload = defineSliceUpload({ file, chunkSize: 2 })
-    const error = vi.fn<[unknown], void>()
+    const error = vi.fn<(error: unknown) => void>()
 
     upload.on('error', error)
     upload.setUploadRequest(async (params) => params.index !== 1)
@@ -175,7 +175,7 @@ describe('SliceUpload', () => {
     FakeXMLHttpRequest.reset()
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
     const upload = defineSliceUpload({ file: createFile('abcd'), chunkSize: 2, poolCount: 1 })
-    const pause = vi.fn<[], void>()
+    const pause = vi.fn<() => void>()
 
     upload.on('pause', pause)
     upload.setUploadRequest((params) => params.ajaxRequest({ url: '/upload' }))
@@ -213,7 +213,7 @@ describe('SliceDownload', () => {
       fileType: 'text/plain',
       poolCount: 2,
     })
-    const finish = vi.fn<[DownloadFinishParams], void>()
+    const finish = vi.fn<(params: DownloadFinishParams) => void>()
 
     download.on('finish', finish)
     download.setDownloadRequest(async (params) => {
@@ -281,7 +281,7 @@ describe('SliceDownload', () => {
       filename: 'out.txt',
       poolCount: 1,
     })
-    const pause = vi.fn<[], void>()
+    const pause = vi.fn<() => void>()
 
     download.on('pause', pause)
     download.setDownloadRequest((params) => params.ajaxRequest({ url: '/download' }))
@@ -304,7 +304,7 @@ describe('SliceDownload', () => {
       fileSize: 2,
       filename: 'out.txt',
     })
-    const error = vi.fn<[unknown], void>()
+    const error = vi.fn<(error: unknown) => void>()
 
     download.on('error', error)
     download.setDownloadRequest(async () => false)
@@ -329,8 +329,8 @@ describe('file helpers', () => {
   })
 
   it('saves files through an anchor download', () => {
-    const click = vi.fn<[], void>()
-    const remove = vi.fn<[], void>()
+    const click = vi.fn<() => void>()
+    const remove = vi.fn<() => void>()
     const anchor = {
       click,
       download: '',

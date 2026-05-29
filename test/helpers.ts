@@ -38,8 +38,8 @@ export function createDeferred<T = void>() {
 
 export function stubUrl() {
   vi.stubGlobal('URL', {
-    createObjectURL: vi.fn<[Blob | MediaSource], string>(() => 'blob:test'),
-    revokeObjectURL: vi.fn<[string], void>(),
+    createObjectURL: vi.fn<(obj: Blob | MediaSource) => string>(() => 'blob:test'),
+    revokeObjectURL: vi.fn<(url: string) => void>(),
   })
 }
 

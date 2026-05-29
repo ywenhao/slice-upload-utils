@@ -33,11 +33,9 @@ describe('React hooks', () => {
   })
 
   it('uploads, syncs state, accepts request updates, and destroys on unmount', async () => {
-    const firstRequest = vi.fn<[Parameters<UploadRequest>[0]], Promise<boolean>>(async () => false)
-    const secondRequest = vi.fn<[Parameters<UploadRequest>[0]], Promise<void>>(
-      async () => undefined,
-    )
-    const onFinish = vi.fn<[UploadFinishParams], void>()
+    const firstRequest = vi.fn<UploadRequest>(async () => false)
+    const secondRequest = vi.fn<UploadRequest>(async () => undefined)
+    const onFinish = vi.fn<(params: UploadFinishParams) => void>()
     const uploadFile = createFile('abcd')
     let hook!: UseReactSliceUploadReturn
     let setRequest!: (request: UploadRequest) => void
@@ -81,7 +79,7 @@ describe('React hooks', () => {
 
   it('downloads and updates file options through the returned API', async () => {
     stubUrl()
-    const onFinish = vi.fn<[DownloadFinishParams], void>()
+    const onFinish = vi.fn<(params: DownloadFinishParams) => void>()
     let hook!: UseReactSliceDownloadReturn
 
     function Harness() {
@@ -121,10 +119,8 @@ describe('Vue hooks', () => {
   })
 
   it('uploads, reacts to file changes, supports request updates, and destroys on unmount', async () => {
-    const firstRequest = vi.fn<[Parameters<UploadRequest>[0]], Promise<void>>(async () => undefined)
-    const secondRequest = vi.fn<[Parameters<UploadRequest>[0]], Promise<void>>(
-      async () => undefined,
-    )
+    const firstRequest = vi.fn<UploadRequest>(async () => undefined)
+    const secondRequest = vi.fn<UploadRequest>(async () => undefined)
     const file = ref<File | null>(createFile('abcd'))
     let api!: ReturnType<typeof useVueSliceUpload>
 
