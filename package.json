@@ -56,7 +56,7 @@
     "lint": "oxlint src test --deny-warnings",
     "prepublishOnly": "pnpm build",
     "release": "bumpp && npm publish",
-    "test": "vitest --environment happy-dom --single-thread",
+    "test": "vitest --environment happy-dom --maxWorkers 1 --no-file-parallelism",
     "typecheck": "pnpm typecheck:lib && pnpm typecheck:vue",
     "typecheck:lib": "tsc --noEmit",
     "typecheck:vue": "pnpm -C playground/vue typecheck"
@@ -69,7 +69,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@types/spark-md5": "^3.0.2",
-    "bumpp": "^9.1.1",
+    "bumpp": "^11.1.0",
     "happy-dom": "^20.9.0",
     "lint-staged": "^17.0.5",
     "oxfmt": "^0.52.0",
