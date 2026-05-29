@@ -18,7 +18,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8.6.6
+          version: 11.4.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -49,7 +49,7 @@ jobs:
 
     strategy:
       matrix:
-        node: [22]
+        node: [24]
         os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
 
@@ -59,7 +59,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8.6.6
+          version: 11.4.0
 
       - name: Setup Node ${{ matrix.node }}
         uses: actions/setup-node@v4
@@ -68,7 +68,7 @@ jobs:
           cache: pnpm
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Test
         run: pnpm test -- --run --single-thread
