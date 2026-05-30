@@ -231,17 +231,60 @@ const { start, pause, cancel, setFileOptions, chunks, progress, status, instance
 
 ```ts
 interface UseSliceUploadOptions {
+  /**
+   * 上传文件
+   */
   file: Ref<File | null | undefined>
+  /**
+   * 上传请求函数
+   */
   request: UploadRequest
+  /**
+   * 报错处理函数
+   */
   onError?: UploadEventType['error']
+  /**
+   * 上传完成函数
+   */
   onFinish?: UploadEventType['finish']
+  /**
+   * 预检函数
+   */
   preVerifyRequest?: PreVerifyUploadRequest
+  /**
+   * 分片大小
+   * @default 1024 * 1024 * 2
+   */
   chunkSize?: number
+  /**
+   * 并发上传数
+   * @default 3
+   */
   poolCount?: number
+  /**
+   * 请求失败后，重试次数
+   * @default 3
+   */
   retryCount?: number
+  /**
+   * 请求失败后，重试间隔时间
+   * @default 300
+   */
   retryDelay?: number
+  /**
+   * 请求超时时间(15s)
+   * @default 15000
+   */
   timeout?: number
+  /**
+   * 计算整个文件的 hash，开启后比较耗时间
+   * @default false
+   */
   realPreHash?: boolean
+  /**
+   * 计算分片文件的 hash，开启后比较耗时间
+   * @default false
+   */
   realChunkHash?: boolean
 }
 ```
@@ -250,17 +293,61 @@ interface UseSliceUploadOptions {
 
 ```ts
 interface UseSliceDownloadOptions {
+  /**
+   * 文件大小
+   */
   fileSize?: number
+  /**
+   * 文件名称
+   */
   filename?: string
+  /**
+   * 文件 MIME 类型
+   * @default application/octet-stream
+   * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
+   */
   fileType?: string
+  /**
+   * 是否自动保存
+   * @default true
+   */
   autoSave?: boolean
+  /**
+   * 分片大小
+   * @default 1024 * 1024 * 2
+   */
   chunkSize?: number
+  /**
+   * 并发下载数
+   * @default 3
+   */
   poolCount?: number
+  /**
+   * 请求失败后，重试次数
+   * @default 3
+   */
   retryCount?: number
+  /**
+   * 请求失败后，重试间隔时间
+   * @default 300
+   */
   retryDelay?: number
+  /**
+   * 请求超时时间(15s)
+   * @default 15000
+   */
   timeout?: number
+  /**
+   * 下载请求函数
+   */
   request: DownloadRequest
+  /**
+   * 报错处理函数
+   */
   onError?: DownloadEventType['error']
+  /**
+   * 下载完成函数
+   */
   onFinish?: DownloadEventType['finish']
 }
 ```
