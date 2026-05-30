@@ -2,27 +2,27 @@
 
 [![NPM version](https://img.shields.io/npm/v/slice-upload-utils?color=a1b858&label=)](https://www.npmjs.com/package/slice-upload-utils)
 
-English | [简体中文](./README.zh-CN.md)
+[English](./README.md) | 简体中文
 
 <p align="center">
   <img src="https://cdn.jsdelivr.net/gh/ywenhao/slice-upload-utils/des.png" />
 </p>
 
-## Introduction
+## 介绍
 
-`slice-upload-utils` provides large-file sliced upload, sliced download, resumable upload, instant upload, pause, cancel, and Vue / React hooks.
+`slice-upload-utils` 提供大文件分片上传、分片下载、断点续传、秒传、暂停、取消，以及 Vue / React hooks。
 
-On upload, files are split into chunks and assigned a `preHash` and `chunkHash`. By default, the library uses sampled hashes, which fit most business scenarios. Enable `realPreHash` or `realChunkHash` when strict verification is required, at the cost of more hashing time.
+上传侧会先把文件切片并计算 `preHash`、`chunkHash`。默认使用抽样 hash，适合大多数业务；需要严格校验时可以开启 `realPreHash` 或 `realChunkHash`，代价是更长的计算时间。
 
-On download, the library sends concurrent HTTP Range requests, merges chunks in order into a `File`, and saves it automatically by default.
+下载侧使用 HTTP Range 请求并发拉取分片，完成后按顺序合并为一个 `File`，默认会自动保存。
 
-## Installation
+## 安装
 
 ```shell
 pnpm add slice-upload-utils
 ```
 
-## Entrypoints
+## 入口
 
 ```ts
 import { defineSliceDownload, defineSliceUpload } from 'slice-upload-utils'
@@ -30,41 +30,41 @@ import { useSliceDownload, useSliceUpload } from 'slice-upload-utils/vue'
 import { useSliceDownload as useReactSliceDownload } from 'slice-upload-utils/react'
 ```
 
-Vue hooks are still exported from the main entrypoint for compatibility. New code should prefer explicit sub-entry imports such as `slice-upload-utils/vue` and `slice-upload-utils/react`.
+Vue hooks 仍保留在主入口导出以兼容旧代码；新代码推荐使用 `slice-upload-utils/vue` 和 `slice-upload-utils/react` 这类明确入口。
 
-The package only ships ESM builds. It is recommended for Vite, Nuxt, Next, modern Node ESM, or other bundlers/runtimes that support ESM.
+包只提供 ESM 产物，推荐在 Vite、Nuxt、Next、现代 Node ESM 或其他支持 ESM 的打包环境中使用。
 
-## Local Playground
+## 本地 Playground
 
 ```shell
 pnpm dev
 ```
 
-`pnpm dev` starts both:
+`pnpm dev` 会同时启动：
 
-- Vue example app: `playground/vue`
-- Local upload/download server: `playground/server`
+- Vue 示例：`playground/vue`
+- 本地上传下载服务：`playground/server`
 
-The Vue example accesses `/api` through the Vite proxy. The server runs at `http://127.0.0.1:10010`.
+Vue 示例通过 Vite proxy 访问 `/api`，对应服务端地址是 `http://127.0.0.1:10010`。
 
-The repository includes `playground/fixtures/mp4.zip`, which is exposed by the server as a test download file. It is a Git LFS file and is only used by the GitHub repository, playground, and tests. The npm package only includes `dist`, so this fixture is not published.
+仓库里的 `playground/fixtures/mp4.zip` 会在 server 启动时作为测试下载文件暴露出来。它是 Git LFS 文件，只用于 GitHub 仓库、playground 和测试；npm 发布包只包含 `dist`，不会把该文件打进包里。
 
-Before the first checkout, install and enable Git LFS so `git pull` replaces LFS pointer files with real files:
+首次拉取仓库前需要先安装并启用 Git LFS，后续 `git pull` 才会自动把 LFS 指针替换成真实文件：
 
 ```shell
 git lfs install
 git pull
 ```
 
-If you already checked out the 134-byte pointer file, run:
+如果已经拉到了 134 字节的指针文件，补执行：
 
 ```shell
 git lfs pull --include=playground/fixtures/mp4.zip
 ```
 
-## Upload Usage
+## 上传用法
 
-Use `params.ajaxRequest` inside your `request` function. It is already bound to the current chunk and works correctly with concurrent uploads, async pre-checks, retries, pause, and cancel.
+推荐在 `request` 里使用 `params.ajaxRequest`。它已经绑定当前分片，适合并发上传、异步预检、重试、暂停和取消。
 
 ```ts
 import { ref } from 'vue'
@@ -119,15 +119,15 @@ async function mergeChunks(params: UploadFinishParams) {
 }
 ```
 
-Common `useSliceUpload` return values:
+`useSliceUpload` 常用返回值：
 
 ```ts
 const { start, pause, cancel, chunks, progress, status, instance } = upload
 ```
 
-## Download Usage
+## 下载用法
 
-Before downloading, usually fetch file metadata first, call `setFileOptions`, then call `start()`. `params.ajaxRequest` automatically sends the current chunk `Range` header.
+下载前通常先请求文件元信息，再调用 `setFileOptions`，最后 `start()`。`params.ajaxRequest` 会自动带上当前分片的 `Range` header。
 
 ```tsx
 import { useSliceDownload } from 'slice-upload-utils/react'
@@ -157,23 +157,23 @@ function DownloadButton() {
     await download.start()
   }
 
-  return <button onClick={handleDownload}>Download</button>
+  return <button onClick={handleDownload}>下载</button>
 }
 ```
 
-Common `useSliceDownload` return values:
+`useSliceDownload` 常用返回值：
 
 ```ts
 const { start, pause, cancel, setFileOptions, chunks, progress, status, instance } = download
 ```
 
-## Server Protocol
+## 服务端接口约定
 
-This repository includes a dependency-free Node playground server that can be used as a backend protocol reference.
+仓库内置了一个无框架依赖的 Node playground server，可作为后端协议参考。
 
 ### `POST /api/upload/verify`
 
-Request body:
+请求体：
 
 ```json
 {
@@ -184,7 +184,7 @@ Request body:
 }
 ```
 
-Response:
+返回：
 
 ```json
 {
@@ -193,11 +193,11 @@ Response:
 }
 ```
 
-When every chunk is already present, `data` returns `true` and the client enters the finished state directly.
+当所有分片都已存在时，`data` 返回 `true`，客户端会直接进入完成态。
 
 ### `POST /api/upload/chunk`
 
-`multipart/form-data` fields:
+`multipart/form-data` 字段：
 
 - `chunk`
 - `index`
@@ -209,7 +209,7 @@ When every chunk is already present, `data` returns `true` and the client enters
 
 ### `POST /api/upload/merge`
 
-Call this after upload finishes. The server merges chunks by `index`:
+上传完成后调用，服务端按 `index` 合并分片：
 
 ```json
 {
@@ -222,7 +222,7 @@ Call this after upload finishes. The server merges chunks by `index`:
 
 ### `GET /api/files/:filename/meta`
 
-Returns file metadata needed before download:
+返回下载前需要的文件元信息：
 
 ```json
 {
@@ -238,136 +238,136 @@ Returns file metadata needed before download:
 
 ### `GET /api/files/:filename/content`
 
-Supports `Range: bytes=start-end`. Sliced downloads automatically send the Range header.
+支持 `Range: bytes=start-end`。客户端分片下载时会自动发送 Range header。
 
-## API Overview
+## API 速览
 
-### Upload Options
+### 上传选项
 
 ```ts
 interface UseSliceUploadOptions {
   /**
-   * File to upload.
+   * 上传文件
    */
   file: Ref<File | null | undefined>
   /**
-   * Upload request function.
+   * 上传请求函数
    */
   request: UploadRequest
   /**
-   * Error handler.
+   * 报错处理函数
    */
   onError?: UploadEventType['error']
   /**
-   * Finish handler.
+   * 上传完成函数
    */
   onFinish?: UploadEventType['finish']
   /**
-   * Pre-verify function.
+   * 预检函数
    */
   preVerifyRequest?: PreVerifyUploadRequest
   /**
-   * Chunk size.
+   * 分片大小
    * @default 1024 * 1024 * 2
    */
   chunkSize?: number
   /**
-   * Upload concurrency.
+   * 并发上传数
    * @default 3
    */
   poolCount?: number
   /**
-   * Request retry count after failure.
+   * 请求失败后，重试次数
    * @default 3
    */
   retryCount?: number
   /**
-   * Request retry delay after failure.
+   * 请求失败后，重试间隔时间
    * @default 300
    */
   retryDelay?: number
   /**
-   * Request timeout in milliseconds.
+   * 请求超时时间(15s)
    * @default 15000
    */
   timeout?: number
   /**
-   * Hash the full file. Slower when enabled.
+   * 计算整个文件的 hash，开启后比较耗时间
    * @default false
    */
   realPreHash?: boolean
   /**
-   * Hash every chunk. Slower when enabled.
+   * 计算分片文件的 hash，开启后比较耗时间
    * @default false
    */
   realChunkHash?: boolean
 }
 ```
 
-### Download Options
+### 下载选项
 
 ```ts
 interface UseSliceDownloadOptions {
   /**
-   * File size.
+   * 文件大小
    */
   fileSize?: number
   /**
-   * File name.
+   * 文件名称
    */
   filename?: string
   /**
-   * File MIME type.
+   * 文件 MIME 类型
    * @default application/octet-stream
-   * @see https://developer.mozilla.org/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
+   * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
    */
   fileType?: string
   /**
-   * Whether to save automatically.
+   * 是否自动保存
    * @default true
    */
   autoSave?: boolean
   /**
-   * Chunk size.
+   * 分片大小
    * @default 1024 * 1024 * 2
    */
   chunkSize?: number
   /**
-   * Download concurrency.
+   * 并发下载数
    * @default 3
    */
   poolCount?: number
   /**
-   * Request retry count after failure.
+   * 请求失败后，重试次数
    * @default 3
    */
   retryCount?: number
   /**
-   * Request retry delay after failure.
+   * 请求失败后，重试间隔时间
    * @default 300
    */
   retryDelay?: number
   /**
-   * Request timeout in milliseconds.
+   * 请求超时时间(15s)
    * @default 15000
    */
   timeout?: number
   /**
-   * Download request function.
+   * 下载请求函数
    */
   request: DownloadRequest
   /**
-   * Error handler.
+   * 报错处理函数
    */
   onError?: DownloadEventType['error']
   /**
-   * Finish handler.
+   * 下载完成函数
    */
   onFinish?: DownloadEventType['finish']
 }
 ```
 
-## Verification
+## 验收
 
 ```shell
 pnpm format:check
