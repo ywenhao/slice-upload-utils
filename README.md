@@ -30,6 +30,8 @@ import { useSliceDownload as useReactSliceDownload } from 'slice-upload-utils/re
 
 Vue hooks 仍保留在主入口导出以兼容旧代码；新代码推荐使用 `slice-upload-utils/vue` 和 `slice-upload-utils/react` 这类明确入口。
 
+包只提供 ESM 产物，推荐在 Vite、Nuxt、Next、现代 Node ESM 或其他支持 ESM 的打包环境中使用。
+
 ## 本地 Playground
 
 ```shell

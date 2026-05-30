@@ -6,7 +6,7 @@ export default defineConfig({
     react: 'src/react.ts',
     vue: 'src/vue.ts',
   },
-  format: ['esm', 'cjs'],
+  format: ['esm'],
   dts: true,
   clean: true,
   fixedExtension: true,
