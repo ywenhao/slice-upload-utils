@@ -127,9 +127,16 @@ export class SliceDownload {
 
   setFileOptions(options: SetDownloadFileOptions) {
     const { filename, fileSize, fileType } = options
-    if (filename) this.filename = filename
-    if (fileSize) this.fileSize = fileSize
-    if (fileType) this.fileType = fileType
+    const changed =
+      (filename !== undefined && filename !== this.filename) ||
+      (fileSize !== undefined && fileSize !== this.fileSize) ||
+      (fileType !== undefined && fileType !== this.fileType)
+
+    if (changed) this.reset()
+
+    if (filename !== undefined) this.filename = filename
+    if (fileSize !== undefined) this.fileSize = fileSize
+    if (fileType !== undefined) this.fileType = fileType
     this.check()
   }
 
@@ -143,6 +150,9 @@ export class SliceDownload {
     if (['downloading', 'success'].includes(this.status)) return
 
     this.check()
+    this.isCancel = false
+    this.isPause = false
+
     if (!this.sliceFileChunks.length) {
       this.initSliceFileChunks()
       this.emitProgress()
@@ -156,9 +166,6 @@ export class SliceDownload {
       this.emitFinish()
       return
     }
-
-    this.isCancel = false
-    this.isPause = false
 
     const failChunks = this.sliceFileChunks.filter((v) => v.status === 'error')
     failChunks.forEach((v) => (v.status = 'ready'))
@@ -231,6 +238,7 @@ export class SliceDownload {
       })
       return async () => {
         let flag = true
+        let error: unknown
         try {
           this.currentRequestChunkIndex = index
           const result = await this.downloadRequestInstance!(params)
@@ -240,8 +248,9 @@ export class SliceDownload {
             flag = false
             console.error('downloadRequest must return Blob')
           }
-        } catch {
+        } catch (e) {
           flag = false
+          error = e
         }
 
         if (this.stop) {
@@ -258,7 +267,13 @@ export class SliceDownload {
           sliceChunk.status = 'error'
           this.emit(
             'error',
-            new AjaxRequestError(`chunk ${sliceChunk.index} downloaded, request fail`, 700, '', ''),
+            error ??
+              new AjaxRequestError(
+                `chunk ${sliceChunk.index} downloaded, request fail`,
+                700,
+                '',
+                '',
+              ),
           )
         }
 
@@ -288,21 +303,27 @@ export class SliceDownload {
         return
       }
 
+      if (this.stop) {
+        reject(new AjaxRequestError('download stopped', 0, options.method || 'GET', options.url))
+        return
+      }
+
       const retryFn = () => {
+        if (this.stop || !this.xhr[idx]) {
+          reject(new AjaxRequestError('download stopped', 0, options.method || 'GET', options.url))
+          return
+        }
         chunk.retryCount++
         this.xhr[idx]!.request()
       }
 
       const abortFn = () => {
-        if (this.stop) this.xhr[idx]!.abort()
+        if (this.stop) this.xhr[idx]?.abort()
 
         return this.stop
       }
       const { start, end } = chunk
-      const headers: RequestHeaders = {
-        Range: `bytes=${start}-${end}`,
-        ...options.headers,
-      }
+      const headers = mergeRangeHeaders(options.headers, `bytes=${start}-${end}`)
 
       const ajaxRequestOptions: AjaxRequestOptions = {
         method: 'GET',
@@ -333,7 +354,6 @@ export class SliceDownload {
           }
           chunk.status = 'error'
           this.currentRequestChunkIndex = -1
-          this.emit('error', evt)
           reject(evt)
         },
         onSuccess: (evt) => {
@@ -359,7 +379,7 @@ export class SliceDownload {
         },
       }
       this.xhr[idx] = ajaxRequest(ajaxRequestOptions)
-      if (!this.stop) this.xhr[idx]!.request()
+      this.xhr[idx]!.request()
     })
   }
 
@@ -403,7 +423,7 @@ export class SliceDownload {
         index,
         file: null,
         start: index * chunkSize,
-        end: index + 1 === chunkTotal ? fileSize : (index + 1) * chunkSize - 1,
+        end: index + 1 === chunkTotal ? fileSize - 1 : (index + 1) * chunkSize - 1,
         ...reset,
       }))
       return
@@ -465,11 +485,11 @@ export class SliceDownload {
    */
   get status(): SliceDownloadStatus {
     const chunks = this.sliceFileChunks
-    if (!chunks.length) return 'ready'
-
     if (this.isCancel) return 'cancel'
 
     if (this.isPause) return 'pause'
+
+    if (!chunks.length) return 'ready'
 
     if (chunks.some((v) => v.status === 'downloading')) return 'downloading'
 
@@ -494,6 +514,16 @@ export class SliceDownload {
 
 export function defineSliceDownload(options: SliceDownloadOptions) {
   return new SliceDownload(options)
+}
+
+function mergeRangeHeaders(headers: RequestHeaders | undefined, range: string): RequestHeaders {
+  if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+    const nextHeaders = new Headers(headers)
+    nextHeaders.set('Range', range)
+    return nextHeaders
+  }
+
+  return { ...headers, Range: range }
 }
 
 /**

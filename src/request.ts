@@ -11,13 +11,12 @@ export interface RequestOptions {
   timeout?: number
   withCredentials?: boolean
   /**
-   * Upload chunk binding. Prefer passing this from UploadParams.chunkHash when an
-   * upload request awaits anything before calling ajaxRequest.
+   * Upload chunk binding kept for backward compatibility. Prefer chunkIndex when
+   * a request awaits anything before calling ajaxRequest.
    */
   chunkHash?: string
   /**
-   * Download chunk binding. Prefer passing this from DownloadParams.index when a
-   * download request awaits anything before calling ajaxRequest.
+   * Upload/download chunk binding. params.ajaxRequest sets this automatically.
    */
   chunkIndex?: number
 }

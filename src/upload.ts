@@ -49,6 +49,7 @@ export class SliceUpload {
 
   private preHash: null | string = ''
   private currentRequestChunkHash: string | null = null
+  private currentRequestChunkIndex = -1
   private sliceFileChunks: SliceUploadFileChunk[] = []
 
   private isCancel = false
@@ -113,6 +114,7 @@ export class SliceUpload {
   reset() {
     this.preHash = null
     this.currentRequestChunkHash = null
+    this.currentRequestChunkIndex = -1
     this.sliceFileChunks = []
     this.abort()
     this.isCancel = false
@@ -144,8 +146,8 @@ export class SliceUpload {
     const { timeout } = this
 
     return new Promise<D>((resolve, reject) => {
-      const chunkHash = options.chunkHash ?? this.currentRequestChunkHash
-      const chunk = chunkHash ? this.findSliceFileChunk(chunkHash) : undefined
+      const idx = this.findRequestChunkIndex(options)
+      const chunk = this.sliceFileChunks[idx]
       if (!chunk) {
         reject(
           new AjaxRequestError(
@@ -158,15 +160,22 @@ export class SliceUpload {
         return
       }
 
-      const idx = this.sliceFileChunks.findIndex((v) => v.chunkHash === chunk.chunkHash)
+      if (this.stop) {
+        reject(new AjaxRequestError('upload stopped', 0, options.method || 'POST', options.url))
+        return
+      }
 
       const retryFn = () => {
+        if (this.stop || !this.xhr[idx]) {
+          reject(new AjaxRequestError('upload stopped', 0, options.method || 'POST', options.url))
+          return
+        }
         chunk.retryCount++
         this.xhr[idx]!.request()
       }
 
       const abortFn = () => {
-        if (this.stop) this.xhr[idx]!.abort()
+        if (this.stop) this.xhr[idx]?.abort()
         return this.stop
       }
       const ajaxRequestOptions: AjaxRequestOptions = {
@@ -184,6 +193,10 @@ export class SliceUpload {
         onAbort: (evt) => {
           if (chunk.progress !== 100) chunk.status = 'ready'
 
+          if (this.currentRequestChunkIndex === idx) {
+            this.currentRequestChunkIndex = -1
+            this.currentRequestChunkHash = null
+          }
           reject(evt)
         },
         onError: (evt) => {
@@ -194,7 +207,10 @@ export class SliceUpload {
             return
           }
           chunk.status = 'error'
-          this.emit('error', evt)
+          if (this.currentRequestChunkIndex === idx) {
+            this.currentRequestChunkIndex = -1
+            this.currentRequestChunkHash = null
+          }
           reject(evt)
         },
         onSuccess: (evt) => {
@@ -218,7 +234,7 @@ export class SliceUpload {
       }
 
       this.xhr[idx] = ajaxRequest(ajaxRequestOptions)
-      if (!this.stop) this.xhr[idx]!.request()
+      this.xhr[idx]!.request()
     })
   }
 
@@ -239,6 +255,8 @@ export class SliceUpload {
     if (['uploading', 'success'].includes(this.status)) return
 
     this.check()
+    this.isCancel = false
+    this.isPause = false
 
     if (!this.preHash && !this.sliceFileChunks.length) {
       const { file, chunkSize, realPreHash, realChunkHash } = this
@@ -248,6 +266,7 @@ export class SliceUpload {
         realPreHash,
         realChunkHash,
       })
+      if (this.stop) return
       this.preHash = preHash
 
       this.initSliceFileChunks(fileChunks)
@@ -272,18 +291,18 @@ export class SliceUpload {
         console.error('preVerifyRequest is fail', e)
         result = []
       }
-      _sliceFileChunks = _sliceFileChunks.filter((v) => !result.includes(v.chunkHash))
+      if (this.stop) return
+
+      const verifiedIndexes = this.getVerifiedChunkIndexes(_sliceFileChunks, result)
+      _sliceFileChunks = _sliceFileChunks.filter((v) => !verifiedIndexes.has(v.index))
       this.sliceFileChunks.forEach((v) => {
-        if (result.includes(v.chunkHash)) {
+        if (verifiedIndexes.has(v.index)) {
           v.status = 'success'
           v.progress = 100
         }
       })
       this.emitFinish()
     }
-
-    this.isCancel = false
-    this.isPause = false
 
     const failChunks = this.sliceFileChunks.filter((v) => v.status === 'error')
     failChunks.forEach((v) => (v.status = 'ready'))
@@ -321,7 +340,7 @@ export class SliceUpload {
     const len = beUploadChunks.length
     const promiseList = beUploadChunks.map((v) => {
       const { chunk, index, chunkHash } = v
-      const sliceChunk = this.findSliceFileChunk(chunkHash)!
+      const sliceChunk = this.sliceFileChunks[index]!
       const params = {
         chunk,
         index,
@@ -332,20 +351,27 @@ export class SliceUpload {
       } as UploadParams
       Object.defineProperty(params, 'ajaxRequest', {
         enumerable: false,
-        value: <D = any>(options: RequestOptions) => this.ajaxRequest<D>({ ...options, chunkHash }),
+        value: <D = any>(options: RequestOptions) =>
+          this.ajaxRequest<D>({ ...options, chunkHash, chunkIndex: index }),
       })
       return async () => {
         let flag = true
+        let error: unknown
         try {
+          this.currentRequestChunkIndex = index
           this.currentRequestChunkHash = chunkHash
           const result = await this.uploadRequestInstance!(params)
           if (result === false) flag = false
-        } catch {
+        } catch (e) {
           flag = false
+          error = e
         }
 
         if (this.stop) {
-          if (this.currentRequestChunkHash === chunkHash) this.currentRequestChunkHash = null
+          if (this.currentRequestChunkIndex === index) {
+            this.currentRequestChunkIndex = -1
+            this.currentRequestChunkHash = null
+          }
           return false
         }
 
@@ -359,16 +385,55 @@ export class SliceUpload {
           sliceChunk.status = 'error'
           this.emit(
             'error',
-            new AjaxRequestError(`chunk ${sliceChunk.index} uploaded, request fail`, 700, '', ''),
+            error ??
+              new AjaxRequestError(`chunk ${sliceChunk.index} uploaded, request fail`, 700, '', ''),
           )
         }
 
-        if (this.currentRequestChunkHash === chunkHash) this.currentRequestChunkHash = null
+        if (this.currentRequestChunkIndex === index) {
+          this.currentRequestChunkIndex = -1
+          this.currentRequestChunkHash = null
+        }
         return flag
       }
     })
 
     return { promiseList, len }
+  }
+
+  private findRequestChunkIndex(options: RequestOptions) {
+    if (options.chunkIndex !== undefined) return options.chunkIndex
+
+    const chunkHash = options.chunkHash ?? this.currentRequestChunkHash
+    if (
+      chunkHash &&
+      this.currentRequestChunkIndex >= 0 &&
+      this.sliceFileChunks[this.currentRequestChunkIndex]?.chunkHash === chunkHash
+    )
+      return this.currentRequestChunkIndex
+
+    if (chunkHash) return this.sliceFileChunks.findIndex((v) => v.chunkHash === chunkHash)
+
+    return this.currentRequestChunkIndex
+  }
+
+  private getVerifiedChunkIndexes(chunks: SliceUploadFileChunk[], chunkHashes: string[]) {
+    const verifiedIndexes = new Set<number>()
+    const hashCounts = new Map<string, number>()
+    chunkHashes.forEach((chunkHash) => {
+      hashCounts.set(chunkHash, (hashCounts.get(chunkHash) || 0) + 1)
+    })
+
+    chunks.forEach((chunk) => {
+      const count = hashCounts.get(chunk.chunkHash) || 0
+      if (!count) return
+
+      verifiedIndexes.add(chunk.index)
+      if (count === 1) hashCounts.delete(chunk.chunkHash)
+      else hashCounts.set(chunk.chunkHash, count - 1)
+    })
+
+    return verifiedIndexes
   }
 
   private initSliceFileChunks(fileChunks?: FileChunk[]) {
@@ -420,6 +485,7 @@ export class SliceUpload {
     this.emitProgress()
     this._progress = -1
     this.currentRequestChunkHash = null
+    this.currentRequestChunkIndex = -1
     this.emit('cancel')
   }
 
@@ -501,11 +567,11 @@ export class SliceUpload {
    */
   get status(): SliceUploadStatus {
     const chunks = this.sliceFileChunks
-    if (!chunks.length) return 'ready'
-
     if (this.isCancel) return 'cancel'
 
     if (this.isPause) return 'pause'
+
+    if (!chunks.length) return 'ready'
 
     if (chunks.some((v) => v.status === 'uploading')) return 'uploading'
 

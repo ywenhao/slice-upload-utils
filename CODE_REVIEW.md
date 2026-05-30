@@ -2,6 +2,13 @@
 
 ## Findings
 
+- `src/upload.ts:L324`: `chunkHash` is not unique when `realChunkHash=true` and duplicate chunk contents exist. Bind upload requests by `index` and keep `chunkHash` as compatibility metadata.
+- `src/upload.ts:L243`: `pause()` / `cancel()` during hash or pre-verify could be overwritten by `start()` and continue scheduling uploads. Clear stop flags before starting and return after long awaits when stopped.
+- `src/upload.ts:L220` / `src/download.ts:L361`: delayed `params.ajaxRequest()` calls after pause/cancel created unsent XHR promises that never settled. Reject immediately when stopped, including delayed retry callbacks.
+- `src/download.ts:L128`: changing download file options after a successful download reused the old success chunks and made the next `start()` return early. Reset chunks when filename, size, or type changes.
+- `src/upload.ts:L189` / `src/download.ts:L327`: XHR failures emitted both the original request error and a generic outer error. Keep the original error and emit once from the outer request task.
+- `src/download.ts:L302`: spreading `Headers` into an object dropped custom headers before adding `Range`. Clone `Headers` and set `Range` explicitly.
+- `src/download.ts:L406`: last download chunk used `fileSize` as the inclusive HTTP Range end byte. Use `fileSize - 1`.
 - `src/vueHooks.ts:L37`: `watch(status, () => setChunk())` referenced `setChunk` before declaration in the old implementation. Move instance/setup helpers before watchers and keep hook-only options out of the core constructor.
 - `playground/vue/src/example/Upload.vue:L10`: `request` closed over `instance` before the hook return value existed. Prefer `params.ajaxRequest()` so the request is bound to the current chunk without declaration-order coupling.
 - `src/upload.ts:L153`: `ajaxRequest()` depended on shared `currentRequestChunkHash`; concurrent or delayed request code could bind to the wrong chunk. Add per-call `chunkHash` binding and expose it through non-enumerable `UploadParams.ajaxRequest`.
@@ -18,6 +25,12 @@
 
 ## Changes
 
+- Rebound upload chunk requests with `chunkIndex` while keeping `chunkHash` compatibility.
+- Added stop-state guards for upload hash/pre-verify, delayed ajax requests, and retry timers.
+- Reset download state when file options change and fixed final Range end-byte calculation.
+- Preserved `Headers` instances when adding download Range headers.
+- Removed duplicate XHR/outer error emissions while retaining the original request error.
+- Added regression tests for duplicate real chunk hashes, delayed pause/cancel, retry cancel, download file option changes, final Range headers, and custom `Headers`.
 - Replaced legacy build/lint scripts with `tsdown`, `oxlint`, `oxfmt`, and Vitest.
 - Added `tsdown.config.ts`, `.oxlintrc.json`, and `.oxfmtrc.json`.
 - Added `slice-upload-utils/vue` and `slice-upload-utils/react` exports while keeping existing Vue hook exports on the main entry.

@@ -193,6 +193,36 @@ describe('SliceUpload', () => {
     expect(upload.getData().chunks.every((chunk) => chunk.progress === 100)).toBe(true)
   })
 
+  it('keeps duplicate real chunk hashes bound to their own indexes', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const file = createFile('abab')
+    const upload = defineSliceUpload({ file, chunkSize: 2, poolCount: 1, realChunkHash: true })
+    const uploaded: number[] = []
+
+    upload.setPreVerifyRequest(async () => {
+      const { chunks } = upload.getData()
+      return [chunks[0]!.chunkHash]
+    })
+    upload.setUploadRequest(async (params) => {
+      uploaded.push(params.index)
+      await params.ajaxRequest({ url: `/upload-${params.index}` })
+    })
+
+    const start = upload.start()
+    await waitFor(() => expect(FakeXMLHttpRequest.instances[0]).toBeDefined())
+    const xhr = FakeXMLHttpRequest.instances[0]!
+    xhr.status = 200
+    xhr.responseText = 'ok'
+    xhr.uploadProgress(1, 1)
+    xhr.load()
+    await start
+
+    expect(uploaded).toEqual([1])
+    expect(upload.status).toBe('success')
+    expect(upload.getData().chunks.map((chunk) => chunk.progress)).toEqual([100, 100])
+  })
+
   it('treats preVerify true as a complete upload', async () => {
     const file = createFile('abcdef')
     const upload = defineSliceUpload({ file, chunkSize: 2 })
@@ -257,6 +287,46 @@ describe('SliceUpload', () => {
     expect(upload.progress).toBe(0)
     expect(upload.getData().chunks.every((chunk) => chunk.progress === 0)).toBe(true)
   })
+
+  it('does not hang when upload is canceled before a delayed ajaxRequest starts', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const upload = defineSliceUpload({ file: createFile('abcd'), chunkSize: 2, poolCount: 1 })
+
+    upload.setUploadRequest(async (params) => {
+      await sleep(5)
+      return await params.ajaxRequest({ url: '/late-upload' })
+    })
+
+    const start = upload.start()
+    await waitFor(() => expect(upload.getData().chunks.length).toBe(2))
+    upload.cancel()
+    await start
+
+    expect(FakeXMLHttpRequest.instances).toHaveLength(0)
+    expect(upload.status).toBe('cancel')
+  })
+
+  it('does not hang when upload is canceled while waiting to retry', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const upload = defineSliceUpload({
+      chunkSize: 2,
+      file: createFile('ab'),
+      retryCount: 1,
+      retryDelay: 5,
+    })
+
+    upload.setUploadRequest((params) => params.ajaxRequest({ url: '/retry-upload' }))
+
+    const start = upload.start()
+    await waitFor(() => expect(FakeXMLHttpRequest.instances[0]).toBeDefined())
+    FakeXMLHttpRequest.instances[0]!.error()
+    upload.cancel()
+    await start
+
+    expect(upload.status).toBe('cancel')
+  })
 })
 
 describe('SliceDownload', () => {
@@ -319,6 +389,29 @@ describe('SliceDownload', () => {
     expect(download.status).toBe('success')
   })
 
+  it('resets finished chunks when download file options change', async () => {
+    const download = defineSliceDownload({
+      autoSave: false,
+      chunkSize: 2,
+      fileSize: 2,
+      filename: 'first.txt',
+    })
+    const seen: string[] = []
+
+    download.setDownloadRequest(async (params) => {
+      seen.push(params.filename)
+      return new Blob([params.filename])
+    })
+
+    await download.start()
+    download.setFileOptions({ filename: 'second.txt', fileSize: 4 })
+    await download.start()
+
+    expect(seen).toEqual(['first.txt', 'second.txt', 'second.txt'])
+    expect(download.status).toBe('success')
+    expect(download.getData().chunks).toHaveLength(2)
+  })
+
   it('validates required download options before starting', async () => {
     await expect(defineSliceDownload({}).start()).rejects.toThrow('filename is required')
 
@@ -356,6 +449,52 @@ describe('SliceDownload', () => {
     expect(pause).toHaveBeenCalledOnce()
     expect(download.status).toBe('pause')
     expect(download.getData().chunks[0]!.status).toBe('pause')
+  })
+
+  it('does not hang when download is canceled before a delayed ajaxRequest starts', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const download = defineSliceDownload({
+      autoSave: false,
+      chunkSize: 2,
+      fileSize: 2,
+      filename: 'out.txt',
+    })
+
+    download.setDownloadRequest(async (params) => {
+      await sleep(5)
+      return await params.ajaxRequest({ url: '/late-download' })
+    })
+
+    const start = download.start()
+    await waitFor(() => expect(download.getData().chunks.length).toBe(1))
+    download.cancel()
+    await start
+
+    expect(FakeXMLHttpRequest.instances).toHaveLength(0)
+    expect(download.status).toBe('cancel')
+  })
+
+  it('does not hang when download is canceled while waiting to retry', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const download = defineSliceDownload({
+      autoSave: false,
+      fileSize: 2,
+      filename: 'out.txt',
+      retryCount: 1,
+      retryDelay: 5,
+    })
+
+    download.setDownloadRequest((params) => params.ajaxRequest({ url: '/retry-download' }))
+
+    const start = download.start()
+    await waitFor(() => expect(FakeXMLHttpRequest.instances[0]).toBeDefined())
+    FakeXMLHttpRequest.instances[0]!.error()
+    download.cancel()
+    await start
+
+    expect(download.status).toBe('cancel')
   })
 
   it('marks a chunk as error when request does not return a Blob', async () => {
