@@ -66,7 +66,10 @@ git lfs pull --include=playground/fixtures/mp4.zip
 
 推荐在 `request` 里使用 `params.ajaxRequest`。它已经绑定当前分片，适合并发上传、异步预检、重试、暂停和取消。
 
-```ts
+### Vue
+
+```vue
+<script setup lang="ts">
 import { ref } from 'vue'
 import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'slice-upload-utils'
 import { useSliceUpload } from 'slice-upload-utils/vue'
@@ -74,13 +77,95 @@ import { useSliceUpload } from 'slice-upload-utils/vue'
 const file = ref<File>()
 const chunkSize = 1024 ** 2 * 2
 
-const upload = useSliceUpload({
+const { progress, status, start, pause, cancel } = useSliceUpload({
   chunkSize,
   file,
   request: uploadChunk,
   preVerifyRequest,
   onFinish: mergeChunks,
 })
+
+async function preVerifyRequest(params: PreVerifyUploadParams) {
+  const result = await fetch('/api/upload/verify', {
+    body: JSON.stringify(params),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  }).then((res) => res.json())
+
+  return result.data as string[] | true
+}
+
+async function uploadChunk(params: UploadParams) {
+  const { ajaxRequest, ...fields } = params
+  const data = new FormData()
+
+  data.append('chunkSize', String(chunkSize))
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === null || value === undefined) return
+    data.append(key, typeof value === 'number' ? String(value) : value)
+  })
+
+  const result = await ajaxRequest<{ code: number }>({
+    data,
+    url: '/api/upload/chunk',
+  })
+
+  return result.code === 200
+}
+
+async function mergeChunks(params: UploadFinishParams) {
+  await fetch('/api/upload/merge', {
+    body: JSON.stringify(params),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  })
+}
+
+function handleFileChange(event: Event) {
+  file.value = (event.target as HTMLInputElement).files?.[0]
+}
+</script>
+
+<template>
+  <input type="file" @change="handleFileChange" />
+  <button :disabled="status === 'uploading'" @click="start">上传</button>
+  <button @click="pause">暂停</button>
+  <button @click="cancel">取消</button>
+  <progress :value="progress" max="100" />
+</template>
+```
+
+### React
+
+```tsx
+import { useState } from 'react'
+import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'slice-upload-utils'
+import { useSliceUpload } from 'slice-upload-utils/react'
+
+const chunkSize = 1024 ** 2 * 2
+
+export function UploadPanel() {
+  const [file, setFile] = useState<File | null>(null)
+  const upload = useSliceUpload({
+    chunkSize,
+    file,
+    request: uploadChunk,
+    preVerifyRequest,
+    onFinish: mergeChunks,
+  })
+
+  return (
+    <>
+      <input type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+      <button disabled={upload.status === 'uploading'} onClick={upload.start}>
+        上传
+      </button>
+      <button onClick={upload.pause}>暂停</button>
+      <button onClick={upload.cancel}>取消</button>
+      <progress value={upload.progress} max="100" />
+    </>
+  )
+}
 
 async function preVerifyRequest(params: PreVerifyUploadParams) {
   const result = await fetch('/api/upload/verify', {
@@ -129,7 +214,52 @@ const { start, pause, cancel, chunks, progress, status, instance } = upload
 
 下载前通常先请求文件元信息，再调用 `setFileOptions`，最后 `start()`。`params.ajaxRequest` 会自动带上当前分片的 `Range` header。
 
+### Vue
+
+```vue
+<script setup lang="ts">
+import type { DownloadParams } from 'slice-upload-utils'
+import { useSliceDownload } from 'slice-upload-utils/vue'
+
+const filename = 'mp4.zip'
+
+const { progress, status, start, pause, cancel, setFileOptions } = useSliceDownload({
+  autoSave: true,
+  request: downloadChunk,
+})
+
+async function downloadChunk(params: DownloadParams) {
+  return params.ajaxRequest<Blob>({
+    url: `/api/files/${encodeURIComponent(params.filename)}/content`,
+  })
+}
+
+async function handleDownload() {
+  const meta = await fetch(`/api/files/${encodeURIComponent(filename)}/meta`)
+    .then((res) => res.json())
+    .then((res) => res.data)
+
+  setFileOptions({
+    filename: meta.filename,
+    fileSize: meta.fileSize,
+    fileType: meta.fileType,
+  })
+  await start()
+}
+</script>
+
+<template>
+  <button :disabled="status === 'downloading'" @click="handleDownload">下载</button>
+  <button @click="pause">暂停</button>
+  <button @click="cancel">取消</button>
+  <progress :value="progress" max="100" />
+</template>
+```
+
+### React
+
 ```tsx
+import type { DownloadParams } from 'slice-upload-utils'
 import { useSliceDownload } from 'slice-upload-utils/react'
 
 function DownloadButton() {
@@ -138,7 +268,7 @@ function DownloadButton() {
     request: downloadChunk,
   })
 
-  async function downloadChunk(params) {
+  async function downloadChunk(params: DownloadParams) {
     return params.ajaxRequest<Blob>({
       url: `/api/files/${encodeURIComponent(params.filename)}/content`,
     })
@@ -157,7 +287,16 @@ function DownloadButton() {
     await download.start()
   }
 
-  return <button onClick={handleDownload}>下载</button>
+  return (
+    <>
+      <button disabled={download.status === 'downloading'} onClick={handleDownload}>
+        下载
+      </button>
+      <button onClick={download.pause}>暂停</button>
+      <button onClick={download.cancel}>取消</button>
+      <progress value={download.progress} max="100" />
+    </>
+  )
 }
 ```
 
@@ -267,8 +406,8 @@ interface UseSliceUploadOptions {
    */
   preVerifyRequest?: PreVerifyUploadRequest
   /**
-   * 分片大小
-   * @default 1024 * 1024 * 2
+   * 分片大小，单位：字节
+   * @default 1024 * 1024 * 2 字节
    */
   chunkSize?: number
   /**
@@ -282,13 +421,13 @@ interface UseSliceUploadOptions {
    */
   retryCount?: number
   /**
-   * 请求失败后，重试间隔时间
-   * @default 300
+   * 请求失败后，重试间隔时间，单位：毫秒
+   * @default 300 毫秒
    */
   retryDelay?: number
   /**
-   * 请求超时时间(15s)
-   * @default 15000
+   * 请求超时时间，单位：毫秒
+   * @default 15000 毫秒
    */
   timeout?: number
   /**
@@ -309,7 +448,7 @@ interface UseSliceUploadOptions {
 ```ts
 interface UseSliceDownloadOptions {
   /**
-   * 文件大小
+   * 文件大小，单位：字节
    */
   fileSize?: number
   /**
@@ -328,8 +467,8 @@ interface UseSliceDownloadOptions {
    */
   autoSave?: boolean
   /**
-   * 分片大小
-   * @default 1024 * 1024 * 2
+   * 分片大小，单位：字节
+   * @default 1024 * 1024 * 2 字节
    */
   chunkSize?: number
   /**
@@ -343,13 +482,13 @@ interface UseSliceDownloadOptions {
    */
   retryCount?: number
   /**
-   * 请求失败后，重试间隔时间
-   * @default 300
+   * 请求失败后，重试间隔时间，单位：毫秒
+   * @default 300 毫秒
    */
   retryDelay?: number
   /**
-   * 请求超时时间(15s)
-   * @default 15000
+   * 请求超时时间，单位：毫秒
+   * @default 15000 毫秒
    */
   timeout?: number
   /**

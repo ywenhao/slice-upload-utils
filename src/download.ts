@@ -6,11 +6,20 @@ import { promisePool } from './utils/pool'
 import type { RequestOptions } from './request'
 
 export interface DownloadParams {
+  /**
+   * 分片起始位置，单位：字节
+   */
   start: number
+  /**
+   * 分片结束位置，单位：字节
+   */
   end: number
   index: number
   filename: string
   fileType: string
+  /**
+   * 分片大小，单位：字节
+   */
   chunkSize: number
   chunkTotal: number
   ajaxRequest: <D = any>(options: RequestOptions) => Promise<D>
@@ -24,12 +33,18 @@ export interface SetDownloadFileOptions {
    * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
    */
   fileType?: string
+  /**
+   * 文件大小，单位：字节
+   */
   fileSize?: number
 }
 
 export type DownloadRequest = (params: DownloadParams) => Promise<false | File | Blob>
 
 export interface SliceDownloadOptions {
+  /**
+   * 文件大小，单位：字节
+   */
   fileSize?: number
   filename?: string
   /**
@@ -44,8 +59,8 @@ export interface SliceDownloadOptions {
    */
   autoSave?: boolean
   /**
-   * 分片大小
-   * @default 1024 * 1024 * 2
+   * 分片大小，单位：字节
+   * @default 1024 * 1024 * 2 字节
    */
   chunkSize?: number
   /**
@@ -59,13 +74,13 @@ export interface SliceDownloadOptions {
    */
   retryCount?: number
   /**
-   * 请求失败后，重试间隔时间
-   * @default 300
+   * 请求失败后，重试间隔时间，单位：毫秒
+   * @default 300 毫秒
    */
   retryDelay?: number
   /**
-   * 请求超时时间(15s)
-   * @default 15000
+   * 请求超时时间，单位：毫秒
+   * @default 15000 毫秒
    */
   timeout?: number
 }
@@ -73,7 +88,13 @@ export interface SliceDownloadOptions {
 export interface SliceDownloadFileChunk {
   file: Blob | File | null
   index: number
+  /**
+   * 分片起始位置，单位：字节
+   */
   start: number
+  /**
+   * 分片结束位置，单位：字节
+   */
   end: number
   status: SliceDownloadStatus
   progress: number

@@ -14,7 +14,7 @@ export interface FileChunkParams {
    */
   realChunkHash: boolean
   /**
-   * 分片大小
+   * 分片大小，单位：字节
    */
   chunkSize: number
 }
@@ -51,8 +51,8 @@ export interface SliceUploadOptions {
    */
   file?: File
   /**
-   * 分片大小
-   * @default 1024 * 1024 * 2
+   * 分片大小，单位：字节
+   * @default 1024 * 1024 * 2 字节
    */
   chunkSize?: number
   /**
@@ -66,13 +66,13 @@ export interface SliceUploadOptions {
    */
   retryCount?: number
   /**
-   * 请求失败后，重试间隔时间
-   * @default 300
+   * 请求失败后，重试间隔时间，单位：毫秒
+   * @default 300 毫秒
    */
   retryDelay?: number
   /**
-   * 请求超时时间(15s)
-   * @default 15000
+   * 请求超时时间，单位：毫秒
+   * @default 15000 毫秒
    */
   timeout?: number
   /**
@@ -92,6 +92,9 @@ export interface SliceUploadOptions {
  */
 export interface HashChunksParams {
   file: File
+  /**
+   * 分片大小，单位：字节
+   */
   chunkSize: number
   realChunkHash: boolean
   realPreHash: boolean

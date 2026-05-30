@@ -5,7 +5,7 @@ import { preHashWorker } from './worker/preHash.worker'
  * 取得hash值
  * 大文件进行首尾拼接，计算hash值，小文件直接计算hash值
  * @param file 文件
- * @param chunkSize 分片大小
+ * @param chunkSize 分片大小，单位：字节
  */
 export async function getPreHash(file: File, chunkSize: number) {
   // 小文件直接计算真实hash值
@@ -20,6 +20,11 @@ export async function getPreHash(file: File, chunkSize: number) {
   return preHash
 }
 
+/**
+ * 取得用于抽样 hash 的文件片段
+ * @param file 文件
+ * @param chunkSize 分片大小，单位：字节
+ */
 export function getPreFile(file: File, chunkSize: number) {
   if (file.size <= chunkSize) return file
   const size = 500 * 1024

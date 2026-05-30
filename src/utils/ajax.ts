@@ -9,6 +9,9 @@ export type RequestHeaders = Headers | Record<string, string | number | null | u
 export interface AjaxRequestOptions {
   url: string
   method: RequestMethod
+  /**
+   * Request timeout in milliseconds.
+   */
   timeout?: number
   data?: XMLHttpRequestBodyInit | FormData
   responseType?: XMLHttpRequestResponseType

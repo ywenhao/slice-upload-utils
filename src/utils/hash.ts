@@ -5,6 +5,7 @@ const DEFAULT_HASH_CHUNK_SIZE = 1024 * 1024 * 2
 /**
  * 计算文件hash
  * @param file 文件
+ * @param chunkSize 分片大小，单位：字节
  * @returns
  */
 export async function getFileHash(file: File | Blob, chunkSize = DEFAULT_HASH_CHUNK_SIZE) {
@@ -34,7 +35,7 @@ export function getCustomFileHash(sourceHash: string, file: File) {
 /**
  * 计算自定义分片hash
  * @param hash 主文件hash
- * @param chunkSize 分片大小
+ * @param chunkSize 分片大小，单位：字节
  * @param index 下标
  * @returns
  */

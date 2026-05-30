@@ -8,6 +8,9 @@ export interface RequestOptions {
   method?: RequestMethod
   data?: any
   headers?: RequestHeaders
+  /**
+   * Request timeout in milliseconds.
+   */
   timeout?: number
   withCredentials?: boolean
   /**

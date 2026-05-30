@@ -66,7 +66,10 @@ git lfs pull --include=playground/fixtures/mp4.zip
 
 Use `params.ajaxRequest` inside your `request` function. It is already bound to the current chunk and works correctly with concurrent uploads, async pre-checks, retries, pause, and cancel.
 
-```ts
+### Vue
+
+```vue
+<script setup lang="ts">
 import { ref } from 'vue'
 import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'slice-upload-utils'
 import { useSliceUpload } from 'slice-upload-utils/vue'
@@ -74,13 +77,95 @@ import { useSliceUpload } from 'slice-upload-utils/vue'
 const file = ref<File>()
 const chunkSize = 1024 ** 2 * 2
 
-const upload = useSliceUpload({
+const { progress, status, start, pause, cancel } = useSliceUpload({
   chunkSize,
   file,
   request: uploadChunk,
   preVerifyRequest,
   onFinish: mergeChunks,
 })
+
+async function preVerifyRequest(params: PreVerifyUploadParams) {
+  const result = await fetch('/api/upload/verify', {
+    body: JSON.stringify(params),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  }).then((res) => res.json())
+
+  return result.data as string[] | true
+}
+
+async function uploadChunk(params: UploadParams) {
+  const { ajaxRequest, ...fields } = params
+  const data = new FormData()
+
+  data.append('chunkSize', String(chunkSize))
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === null || value === undefined) return
+    data.append(key, typeof value === 'number' ? String(value) : value)
+  })
+
+  const result = await ajaxRequest<{ code: number }>({
+    data,
+    url: '/api/upload/chunk',
+  })
+
+  return result.code === 200
+}
+
+async function mergeChunks(params: UploadFinishParams) {
+  await fetch('/api/upload/merge', {
+    body: JSON.stringify(params),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  })
+}
+
+function handleFileChange(event: Event) {
+  file.value = (event.target as HTMLInputElement).files?.[0]
+}
+</script>
+
+<template>
+  <input type="file" @change="handleFileChange" />
+  <button :disabled="status === 'uploading'" @click="start">Upload</button>
+  <button @click="pause">Pause</button>
+  <button @click="cancel">Cancel</button>
+  <progress :value="progress" max="100" />
+</template>
+```
+
+### React
+
+```tsx
+import { useState } from 'react'
+import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'slice-upload-utils'
+import { useSliceUpload } from 'slice-upload-utils/react'
+
+const chunkSize = 1024 ** 2 * 2
+
+export function UploadPanel() {
+  const [file, setFile] = useState<File | null>(null)
+  const upload = useSliceUpload({
+    chunkSize,
+    file,
+    request: uploadChunk,
+    preVerifyRequest,
+    onFinish: mergeChunks,
+  })
+
+  return (
+    <>
+      <input type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+      <button disabled={upload.status === 'uploading'} onClick={upload.start}>
+        Upload
+      </button>
+      <button onClick={upload.pause}>Pause</button>
+      <button onClick={upload.cancel}>Cancel</button>
+      <progress value={upload.progress} max="100" />
+    </>
+  )
+}
 
 async function preVerifyRequest(params: PreVerifyUploadParams) {
   const result = await fetch('/api/upload/verify', {
@@ -129,7 +214,52 @@ const { start, pause, cancel, chunks, progress, status, instance } = upload
 
 Before downloading, usually fetch file metadata first, call `setFileOptions`, then call `start()`. `params.ajaxRequest` automatically sends the current chunk `Range` header.
 
+### Vue
+
+```vue
+<script setup lang="ts">
+import type { DownloadParams } from 'slice-upload-utils'
+import { useSliceDownload } from 'slice-upload-utils/vue'
+
+const filename = 'mp4.zip'
+
+const { progress, status, start, pause, cancel, setFileOptions } = useSliceDownload({
+  autoSave: true,
+  request: downloadChunk,
+})
+
+async function downloadChunk(params: DownloadParams) {
+  return params.ajaxRequest<Blob>({
+    url: `/api/files/${encodeURIComponent(params.filename)}/content`,
+  })
+}
+
+async function handleDownload() {
+  const meta = await fetch(`/api/files/${encodeURIComponent(filename)}/meta`)
+    .then((res) => res.json())
+    .then((res) => res.data)
+
+  setFileOptions({
+    filename: meta.filename,
+    fileSize: meta.fileSize,
+    fileType: meta.fileType,
+  })
+  await start()
+}
+</script>
+
+<template>
+  <button :disabled="status === 'downloading'" @click="handleDownload">Download</button>
+  <button @click="pause">Pause</button>
+  <button @click="cancel">Cancel</button>
+  <progress :value="progress" max="100" />
+</template>
+```
+
+### React
+
 ```tsx
+import type { DownloadParams } from 'slice-upload-utils'
 import { useSliceDownload } from 'slice-upload-utils/react'
 
 function DownloadButton() {
@@ -138,7 +268,7 @@ function DownloadButton() {
     request: downloadChunk,
   })
 
-  async function downloadChunk(params) {
+  async function downloadChunk(params: DownloadParams) {
     return params.ajaxRequest<Blob>({
       url: `/api/files/${encodeURIComponent(params.filename)}/content`,
     })
@@ -157,7 +287,16 @@ function DownloadButton() {
     await download.start()
   }
 
-  return <button onClick={handleDownload}>Download</button>
+  return (
+    <>
+      <button disabled={download.status === 'downloading'} onClick={handleDownload}>
+        Download
+      </button>
+      <button onClick={download.pause}>Pause</button>
+      <button onClick={download.cancel}>Cancel</button>
+      <progress value={download.progress} max="100" />
+    </>
+  )
 }
 ```
 
@@ -267,8 +406,8 @@ interface UseSliceUploadOptions {
    */
   preVerifyRequest?: PreVerifyUploadRequest
   /**
-   * Chunk size.
-   * @default 1024 * 1024 * 2
+   * Chunk size in bytes.
+   * @default 1024 * 1024 * 2 bytes
    */
   chunkSize?: number
   /**
@@ -282,13 +421,13 @@ interface UseSliceUploadOptions {
    */
   retryCount?: number
   /**
-   * Request retry delay after failure.
-   * @default 300
+   * Request retry delay after failure, in milliseconds.
+   * @default 300 ms
    */
   retryDelay?: number
   /**
    * Request timeout in milliseconds.
-   * @default 15000
+   * @default 15000 ms
    */
   timeout?: number
   /**
@@ -309,7 +448,7 @@ interface UseSliceUploadOptions {
 ```ts
 interface UseSliceDownloadOptions {
   /**
-   * File size.
+   * File size in bytes.
    */
   fileSize?: number
   /**
@@ -328,8 +467,8 @@ interface UseSliceDownloadOptions {
    */
   autoSave?: boolean
   /**
-   * Chunk size.
-   * @default 1024 * 1024 * 2
+   * Chunk size in bytes.
+   * @default 1024 * 1024 * 2 bytes
    */
   chunkSize?: number
   /**
@@ -343,13 +482,13 @@ interface UseSliceDownloadOptions {
    */
   retryCount?: number
   /**
-   * Request retry delay after failure.
-   * @default 300
+   * Request retry delay after failure, in milliseconds.
+   * @default 300 ms
    */
   retryDelay?: number
   /**
    * Request timeout in milliseconds.
-   * @default 15000
+   * @default 15000 ms
    */
   timeout?: number
   /**
