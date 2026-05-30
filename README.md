@@ -8,227 +8,269 @@
 
 ## 介绍
 
-- 本工具包含切片上传、切片下载、Vue hooks 和 React hooks。
+`slice-upload-utils` 提供大文件分片上传、分片下载、断点续传、秒传、暂停、取消，以及 Vue / React hooks。
 
-  ### 上传
-  - 包括切片上传，秒传，断点续传，暂停、取消。
+上传侧会先把文件切片并计算 `preHash`、`chunkHash`。默认使用抽样 hash，适合大多数业务；需要严格校验时可以开启 `realPreHash` 或 `realChunkHash`，代价是更长的计算时间。
 
-  ### 下载
-  - 切片下载，合并，暂停、取消。
+下载侧使用 HTTP Range 请求并发拉取分片，完成后按顺序合并为一个 `File`，默认会自动保存。
 
-  ### 上传hash计算
-  - 为了优化计算hash时间，hash值计算分两种，一直是计算文件的真实MD5，一种是计算自定义hash值。
-
-    ##### 自定义hash值：
-
-    :: **preHash**，采用抽样hash算法，截取file前段、中间和末段合成一个新的文件，和file.size一起计算的一个新的hash值。
-
-    :: **chunkHash**，采用preHash结合chunkSize和该切片的index计算hash值。
-
-    ##### 真实hash值：
-
-    :: **preHash**, file文件的hash值，file的**真实**MD5值计算，在**file.size**大于**chunkSize**时，通过计算**chunk**的~~web worker~~线程里面同时计算。
-
-    :: **chunkHash**, **file.size** 小于**chunkSize**时，**file**等于**chunk**，**chunkHash**等于**preHash**；**file.size**大于**chunkSize**时在~~web worker~~(vite 打包后，npm i 安装使用路径会出问题，故改成直接使用**promise**)里面计算。
-
-  - 可以根据实例中的**isPreHash**和**isChunkHash**的值来判断当前是否计算的真实hash。
-
-## 快速开始
-
-- 使用 pnpm 安装
+## 安装
 
 ```shell
 pnpm add slice-upload-utils
 ```
 
-## 示例代码
-
-### 上传
-
-[/playground/vue/src/example/Upload.vue](./playground/vue/src/example/Upload.vue)
-
-### 下载
-
-[/playground/vue/src/example/Download.vue](./playground/vue/src/example/Download.vue)
-
-### 下载文件后端代码
-
-[koa-download-demo](https://github.com/ywenhao/koa-download-demo)
-
-- 具体效果可以把代码仓库clone下来，pnpm dev一下。
-
-## 调用说明
-
-### 入口
+## 入口
 
 ```ts
 import { defineSliceDownload, defineSliceUpload } from 'slice-upload-utils'
-import { useSliceUpload as useVueSliceUpload } from 'slice-upload-utils/vue'
-import { useSliceUpload as useReactSliceUpload } from 'slice-upload-utils/react'
+import { useSliceDownload, useSliceUpload } from 'slice-upload-utils/vue'
+import { useSliceDownload as useReactSliceDownload } from 'slice-upload-utils/react'
 ```
 
-Vue hooks 仍保留在主入口导出；新代码推荐使用 `slice-upload-utils/vue` 让框架入口更明确。
+Vue hooks 仍保留在主入口导出以兼容旧代码；新代码推荐使用 `slice-upload-utils/vue` 和 `slice-upload-utils/react` 这类明确入口。
 
-### 上传
+## 本地 Playground
 
-推荐在 `request` 里使用 `params.ajaxRequest`。它已经绑定了当前分片，不需要在外层闭包里提前引用 `instance`。
+```shell
+pnpm dev
+```
+
+`pnpm dev` 会同时启动：
+
+- Vue 示例：`playground/vue`
+- 本地上传下载服务：`playground/server`
+
+Vue 示例通过 Vite proxy 访问 `/api`，对应服务端地址是 `http://127.0.0.1:10010`。
+
+仓库里的 `playground/fixtures/mp4.zip` 会在 server 启动时作为测试下载文件暴露出来。它只用于 GitHub 仓库、playground 和测试；npm 发布包只包含 `dist`，不会把该文件打进包里。
+
+## 上传用法
+
+推荐在 `request` 里使用 `params.ajaxRequest`。它已经绑定当前分片，适合并发上传、异步预检、重试、暂停和取消。
 
 ```ts
+import { ref } from 'vue'
+import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'slice-upload-utils'
 import { useSliceUpload } from 'slice-upload-utils/vue'
 
-const { start, pause, cancel, chunks, progress, status } = useSliceUpload({
+const file = ref<File>()
+const chunkSize = 1024 ** 2 * 2
+
+const upload = useSliceUpload({
+  chunkSize,
   file,
-  async request(params) {
-    const data = new FormData()
-    Object.entries(params).forEach(([key, value]) => {
-      data.append(key, typeof value === 'number' ? String(value) : value)
-    })
-
-    const result = await params.ajaxRequest<{ code: number }>({
-      data,
-      url: '/slice_upload',
-    })
-
-    return result.code === 200
-  },
+  request: uploadChunk,
+  preVerifyRequest,
+  onFinish: mergeChunks,
 })
-```
 
-```ts
-export interface UseSliceUploadOptions {
-  /**
-   * 上传文件
-   */
-  file: Ref<File | null | undefined>
-  /**
-   * 上传请求函数
-   */
-  request: UploadRequest
-  /**
-   * 报错处理函数
-   */
-  onError?: UploadEventType['error']
-  /**
-   * 上传完成函数
-   */
-  onFinish?: UploadEventType['finish']
-  /**
-   * 预检函数
-   */
-  preVerifyRequest?: PreVerifyUploadRequest
-  /**
-   * 分片大小
-   * @default 1024 * 1024 * 2
-   */
-  chunkSize?: number
-  /**
-   * 并发上传数
-   * @default 3
-   */
-  poolCount?: number
-  /**
-   * 请求失败后，重试次数
-   * @default 3
-   */
-  retryCount?: number
-  /**
-   * 请求失败后，重试间隔时间
-   * @default 300
-   */
-  retryDelay?: number
-  /**
-   * 请求超时时间(15s)
-   * @default 15000
-   */
-  timeout?: number
-  /**
-   * 计算整个文件的hash，开启后比较耗时间
-   * @default false
-   */
-  realPreHash?: boolean
-  /**
-   * 计算分片文件的hash，开启后比较耗时间
-   * @default false
-   */
-  realChunkHash?: boolean
+async function preVerifyRequest(params: PreVerifyUploadParams) {
+  const result = await fetch('/api/upload/verify', {
+    body: JSON.stringify(params),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  }).then((res) => res.json())
+
+  return result.data as string[] | true
+}
+
+async function uploadChunk(params: UploadParams) {
+  const { ajaxRequest, ...fields } = params
+  const data = new FormData()
+
+  data.append('chunkSize', String(chunkSize))
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === null || value === undefined) return
+    data.append(key, typeof value === 'number' ? String(value) : value)
+  })
+
+  const result = await ajaxRequest<{ code: number }>({
+    data,
+    url: '/api/upload/chunk',
+  })
+
+  return result.code === 200
+}
+
+async function mergeChunks(params: UploadFinishParams) {
+  await fetch('/api/upload/merge', {
+    body: JSON.stringify(params),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  })
 }
 ```
 
-### 下载
+`useSliceUpload` 常用返回值：
+
+```ts
+const { start, pause, cancel, chunks, progress, status, instance } = upload
+```
+
+## 下载用法
+
+下载前通常先请求文件元信息，再调用 `setFileOptions`，最后 `start()`。`params.ajaxRequest` 会自动带上当前分片的 `Range` header。
 
 ```tsx
 import { useSliceDownload } from 'slice-upload-utils/react'
 
 function DownloadButton() {
   const download = useSliceDownload({
-    filename: 'demo.zip',
-    fileSize: 1024 * 1024,
     autoSave: true,
-    async request(params) {
-      return params.ajaxRequest<Blob>({
-        data: { index: params.index },
-        url: '/download',
-      })
-    },
+    request: downloadChunk,
   })
 
-  return <button onClick={download.start}>下载</button>
+  async function downloadChunk(params) {
+    return params.ajaxRequest<Blob>({
+      url: `/api/files/${encodeURIComponent(params.filename)}/content`,
+    })
+  }
+
+  async function handleDownload() {
+    const meta = await fetch('/api/files/mp4.zip/meta')
+      .then((res) => res.json())
+      .then((res) => res.data)
+
+    download.setFileOptions({
+      filename: meta.filename,
+      fileSize: meta.fileSize,
+      fileType: meta.fileType,
+    })
+    await download.start()
+  }
+
+  return <button onClick={handleDownload}>下载</button>
 }
 ```
 
+`useSliceDownload` 常用返回值：
+
 ```ts
-export interface UseSliceDownloadOptions {
+const { start, pause, cancel, setFileOptions, chunks, progress, status, instance } = download
+```
+
+## 服务端接口约定
+
+仓库内置了一个无框架依赖的 Node playground server，可作为后端协议参考。
+
+### `POST /api/upload/verify`
+
+请求体：
+
+```json
+{
+  "preHash": "file-hash",
+  "filename": "demo.txt",
+  "chunkSize": 2097152,
+  "chunkTotal": 10
+}
+```
+
+返回：
+
+```json
+{
+  "code": 200,
+  "data": ["uploaded-chunk-hash"]
+}
+```
+
+当所有分片都已存在时，`data` 返回 `true`，客户端会直接进入完成态。
+
+### `POST /api/upload/chunk`
+
+`multipart/form-data` 字段：
+
+- `chunk`
+- `index`
+- `chunkTotal`
+- `preHash`
+- `filename`
+- `chunkHash`
+- `chunkSize`
+
+### `POST /api/upload/merge`
+
+上传完成后调用，服务端按 `index` 合并分片：
+
+```json
+{
+  "preHash": "file-hash",
+  "filename": "demo.txt",
+  "chunkSize": 2097152,
+  "chunkTotal": 10
+}
+```
+
+### `GET /api/files/:filename/meta`
+
+返回下载前需要的文件元信息：
+
+```json
+{
+  "code": 200,
+  "data": {
+    "filename": "demo.txt",
+    "fileSize": 1024,
+    "fileType": "text/plain; charset=utf-8",
+    "url": "/api/files/demo.txt/content"
+  }
+}
+```
+
+### `GET /api/files/:filename/content`
+
+支持 `Range: bytes=start-end`。客户端分片下载时会自动发送 Range header。
+
+## API 速览
+
+### 上传选项
+
+```ts
+interface UseSliceUploadOptions {
+  file: Ref<File | null | undefined>
+  request: UploadRequest
+  onError?: UploadEventType['error']
+  onFinish?: UploadEventType['finish']
+  preVerifyRequest?: PreVerifyUploadRequest
+  chunkSize?: number
+  poolCount?: number
+  retryCount?: number
+  retryDelay?: number
+  timeout?: number
+  realPreHash?: boolean
+  realChunkHash?: boolean
+}
+```
+
+### 下载选项
+
+```ts
+interface UseSliceDownloadOptions {
   fileSize?: number
   filename?: string
-  /**
-   * 文件MIME类型
-   * @default application/octet-stream
-   * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
-   */
   fileType?: string
-  /**
-   * 是否自动保存
-   * @default true
-   */
   autoSave?: boolean
-  /**
-   * 分片大小
-   * @default 1024 * 1024 * 2
-   */
   chunkSize?: number
-  /**
-   * 并发上传数
-   * @default 3
-   */
   poolCount?: number
-  /**
-   * 请求失败后，重试次数
-   * @default 3
-   */
   retryCount?: number
-  /**
-   * 请求失败后，重试间隔时间
-   * @default 300
-   */
   retryDelay?: number
-  /**
-   * 请求超时时间(15s)
-   * @default 15000
-   */
   timeout?: number
-  /**
-   * 上传请求函数
-   */
   request: DownloadRequest
-  /**
-   * 报错处理函数
-   */
   onError?: DownloadEventType['error']
-  /**
-   * 预检函数
-   */
   onFinish?: DownloadEventType['finish']
 }
+```
+
+## 验收
+
+```shell
+pnpm format:check
+pnpm typecheck
+pnpm lint
+pnpm test -- --run
+pnpm build
 ```
 
 ## License

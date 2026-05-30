@@ -1,5 +1,6 @@
 packages:
-  - playground/*
+  - playground/vue
+  - playground/server
   - examples/*
 allowBuilds:
   esbuild: true

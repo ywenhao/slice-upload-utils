@@ -19,7 +19,7 @@
     "vitest": true,
     "worker": true
   },
-  "ignorePatterns": ["dist/**", "node_modules/**"],
+  "ignorePatterns": ["dist/**", "node_modules/**", "playground/server/.data/**"],
   "settings": {
     "react": {
       "version": "19.2.6"

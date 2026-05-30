@@ -49,11 +49,13 @@
     }
   },
   "scripts": {
-    "dev": "pnpm -C playground/vue dev",
+    "dev": "pnpm --parallel --filter playground --filter slice-upload-utils-playground-server dev",
+    "dev:server": "pnpm -C playground/server dev",
+    "dev:vue": "pnpm -C playground/vue dev",
     "build": "tsdown",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "lint": "oxlint src test --deny-warnings",
+    "lint": "oxlint src test playground/server/src --deny-warnings",
     "prepublishOnly": "pnpm build",
     "release": "bumpp && npm publish",
     "test": "vitest --environment happy-dom --maxWorkers 1 --no-file-parallelism",
@@ -66,6 +68,7 @@
     "vue": "^3.5.35"
   },
   "devDependencies": {
+    "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@types/spark-md5": "^3.0.2",

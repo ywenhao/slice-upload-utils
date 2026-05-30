@@ -1,14 +1,22 @@
 import SparkMD5 from 'spark-md5'
 
+const DEFAULT_HASH_CHUNK_SIZE = 1024 * 1024 * 2
+
 /**
  * 计算文件hash
  * @param file 文件
  * @returns
  */
-export async function getFileHash(file: File) {
+export async function getFileHash(file: File | Blob, chunkSize = DEFAULT_HASH_CHUNK_SIZE) {
   const spark = new SparkMD5.ArrayBuffer()
+  const chunkTotal = Math.ceil(file.size / chunkSize)
 
-  spark.append(await file.arrayBuffer())
+  for (let index = 0; index < chunkTotal; index++) {
+    const start = index * chunkSize
+    const end = Math.min(start + chunkSize, file.size)
+    spark.append(await file.slice(start, end).arrayBuffer())
+  }
+
   const hash = spark.end()
   return hash
 }

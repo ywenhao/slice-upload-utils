@@ -9,26 +9,23 @@ export async function chunkWorker(params: FileChunkParams) {
 
   let fileChunks: FileChunk[] = []
   let preHashSpark: SparkMD5.ArrayBuffer | undefined
-  let chunkSpark: SparkMD5.ArrayBuffer | undefined
 
   if (!hash) preHashSpark = new SparkMD5.ArrayBuffer()
-
-  if (realChunkHash) chunkSpark = new SparkMD5.ArrayBuffer()
 
   for (let index = 0; index < chunkTotal; index++) {
     const start = index * chunkSize
     const end = start + chunkSize >= file.size ? file.size : start + chunkSize
     const chunk = file.slice(start, end)
-    const arrayBuffer = await chunk.arrayBuffer()
 
-    // 计算前值hash
-    if (!hash && preHashSpark) preHashSpark.append(arrayBuffer)
-
-    // 计算分片hash
     let chunkHash = ''
-    if (realChunkHash && chunkSpark) {
-      chunkSpark.append(arrayBuffer)
-      chunkHash = chunkSpark.end()
+    if (realChunkHash || preHashSpark) {
+      const arrayBuffer = await chunk.arrayBuffer()
+      if (preHashSpark) preHashSpark.append(arrayBuffer)
+      if (realChunkHash) {
+        const chunkSpark = new SparkMD5.ArrayBuffer()
+        chunkSpark.append(arrayBuffer)
+        chunkHash = chunkSpark.end()
+      }
     }
 
     fileChunks.push({ chunk, index, chunkHash })

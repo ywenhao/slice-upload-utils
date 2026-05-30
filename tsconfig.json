@@ -11,8 +11,14 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
-    "types": ["vite/client"]
+    "types": ["vite/client", "node"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "test/**/*.tsx", "tsdown.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "test/**/*.tsx",
+    "playground/server/**/*.js",
+    "tsdown.config.ts"
+  ],
   "exclude": ["dist", "node_modules", "playground"]
 }

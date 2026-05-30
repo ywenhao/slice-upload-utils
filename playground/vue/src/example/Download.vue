@@ -8,24 +8,21 @@ const { chunks, progress, status, start, pause, cancel, setFileOptions } = useSl
   // onFinish,
 })
 
-const filename = 'dance.mp4'
-// const fileType = 'video/mp4'
+const filename = 'mp4.zip'
 
 // 下载请求函数
 async function request(params: DownloadParams) {
-  // 下载请求data数据处理
-  const result = await params.ajaxRequest({
-    data: { ...params, filename },
-    url: `http://localhost:10010/download/${filename}`,
+  const result = await params.ajaxRequest<Blob>({
+    url: `/api/files/${encodeURIComponent(params.filename)}/content`,
   })
   return result
 }
 
 async function handleStart() {
-  const fileSize = await fetch(`http://localhost:10010/size/${filename}`)
+  const meta = await fetch(`/api/files/${encodeURIComponent(filename)}/meta`)
     .then((res) => res.json())
-    .then((res) => +res.data)
-  setFileOptions({ filename, fileSize })
+    .then((res) => res.data)
+  setFileOptions({ filename: meta.filename, fileSize: meta.fileSize, fileType: meta.fileType })
   start()
 }
 

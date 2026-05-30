@@ -8,4 +8,5 @@ dist
 lib-cov
 logs
 node_modules
-temp
+temp/
+playground/server/.data

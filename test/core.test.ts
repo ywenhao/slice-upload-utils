@@ -6,6 +6,7 @@ import {
   defineSliceDownload,
   defineSliceUpload,
   getCustomChunkHash,
+  getFileHash,
   getHashChunks,
   getPreFile,
   mergeFile,
@@ -74,6 +75,23 @@ describe('hash and chunk helpers', () => {
     expect(getCustomChunkHash('file-hash', 2, 1)).not.toBe(getCustomChunkHash('file-hash', 2, 2))
   })
 
+  it('hashes files incrementally instead of reading the whole file at once', async () => {
+    const file = createFile('abcdef')
+    const readChunks: string[] = []
+    const originalSlice = file.slice.bind(file)
+    const slice = vi.spyOn(file, 'slice').mockImplementation((start, end, contentType) => {
+      const chunk = originalSlice(start, end, contentType)
+      readChunks.push(`${start}-${end}`)
+      return chunk
+    })
+
+    const hash = await getFileHash(file, 2)
+
+    expect(hash).toMatch(/^[a-f0-9]{32}$/)
+    expect(slice).toHaveBeenCalledTimes(3)
+    expect(readChunks).toEqual(['0-2', '2-4', '4-6'])
+  })
+
   it('chunks small files without using worker paths', async () => {
     const file = createFile('abcd')
     const result = await getHashChunks({
@@ -86,6 +104,48 @@ describe('hash and chunk helpers', () => {
     expect(result.fileChunks).toHaveLength(1)
     expect(result.fileChunks[0]!.chunk).toBe(file)
     expect(result.fileChunks[0]!.chunkHash).toBe(result.preHash)
+  })
+
+  it('does not read every chunk body when default custom chunk hashes are enough', async () => {
+    const file = createFile('abcdef')
+    const originalSlice = file.slice.bind(file)
+    const read = vi.fn<() => Promise<ArrayBuffer>>()
+    vi.spyOn(file, 'slice').mockImplementation((start, end, contentType) => {
+      const chunk = originalSlice(start, end, contentType)
+      vi.spyOn(chunk, 'arrayBuffer').mockImplementation(async () => {
+        read()
+        return await Blob.prototype.arrayBuffer.call(chunk)
+      })
+      return chunk
+    })
+
+    const result = await getHashChunks({
+      file,
+      chunkSize: 2,
+      realChunkHash: false,
+      realPreHash: false,
+    })
+
+    expect(result.fileChunks.map((chunk) => chunk.chunkHash)).toEqual(
+      result.fileChunks.map((_, index) => getCustomChunkHash(result.preHash, 2, index)),
+    )
+    expect(read).not.toHaveBeenCalled()
+  })
+
+  it('computes each real chunk hash independently', async () => {
+    const file = createFile('abcdef')
+    const result = await getHashChunks({
+      file,
+      chunkSize: 2,
+      realChunkHash: true,
+      realPreHash: false,
+    })
+
+    expect(result.fileChunks.map((chunk) => chunk.chunkHash)).toEqual([
+      await getFileHash(new Blob(['ab'])),
+      await getFileHash(new Blob(['cd'])),
+      await getFileHash(new Blob(['ef'])),
+    ])
   })
 })
 
