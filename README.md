@@ -45,7 +45,20 @@ pnpm dev
 
 Vue 示例通过 Vite proxy 访问 `/api`，对应服务端地址是 `http://127.0.0.1:10010`。
 
-仓库里的 `playground/fixtures/mp4.zip` 会在 server 启动时作为测试下载文件暴露出来。它只用于 GitHub 仓库、playground 和测试；npm 发布包只包含 `dist`，不会把该文件打进包里。
+仓库里的 `playground/fixtures/mp4.zip` 会在 server 启动时作为测试下载文件暴露出来。它是 Git LFS 文件，只用于 GitHub 仓库、playground 和测试；npm 发布包只包含 `dist`，不会把该文件打进包里。
+
+首次拉取仓库前需要先安装并启用 Git LFS，后续 `git pull` 才会自动把 LFS 指针替换成真实文件：
+
+```shell
+git lfs install
+git pull
+```
+
+如果已经拉到了 134 字节的指针文件，补执行：
+
+```shell
+git lfs pull --include=playground/fixtures/mp4.zip
+```
 
 ## 上传用法
 

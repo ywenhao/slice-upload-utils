@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs'
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { basename, dirname, extname, join, resolve } from 'node:path'
@@ -268,8 +268,25 @@ async function copyFixtureFiles(fixturesDir, filesDir) {
     if (!fixture.isFile()) continue
     const source = join(fixturesDir, fixture.name)
     const target = join(filesDir, sanitizeFilename(fixture.name))
-    await writeFile(target, await readFile(source))
+    await assertFixtureReady(fixture.name, source)
+    await copyFile(source, target)
   }
+}
+
+async function assertFixtureReady(filename, source) {
+  const fileStat = await stat(source)
+  if (fileStat.size > 512) return
+
+  const content = await readFile(source, 'utf8')
+  if (!isGitLfsPointer(content)) return
+
+  throw new Error(
+    `${filename} is still a Git LFS pointer. Run: git lfs pull --include=playground/fixtures/${filename}`,
+  )
+}
+
+function isGitLfsPointer(content) {
+  return content.startsWith('version https://git-lfs.github.com/spec/v1\n')
 }
 
 async function getUploadedChunks(storageDir, preHash) {

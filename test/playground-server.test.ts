@@ -8,20 +8,16 @@ import { createDeferred, createFile } from './helpers'
 
 describe('playground upload/download server', () => {
   const fixturePath = join(process.cwd(), 'playground', 'fixtures', 'mp4.zip')
+  const emptyFixturesDir = join(process.cwd(), 'temp', 'empty-fixtures')
   let baseUrl = ''
   let server: ReturnType<typeof createPlaygroundServer>
   let storageDir = ''
 
   beforeEach(async () => {
     const tempRoot = join(process.cwd(), 'temp')
-    await mkdir(tempRoot, { recursive: true })
+    await mkdir(emptyFixturesDir, { recursive: true })
     storageDir = await mkdtemp(join(tempRoot, 'slice-upload-utils-'))
-    server = createPlaygroundServer({ seedDemoFile: false, storageDir })
-    await server.ready
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-    const address = server.address()
-    if (!address || typeof address === 'string') throw new Error('server did not start')
-    baseUrl = `http://127.0.0.1:${address.port}`
+    await startServer({ fixturesDir: emptyFixturesDir })
   })
 
   afterEach(async () => {
@@ -156,7 +152,11 @@ describe('playground upload/download server', () => {
   })
 
   it('serves the checked-in mp4.zip fixture without publishing it as library code', async () => {
+    await restartServer()
     const fixture = await readFile(fixturePath)
+    const zipMagic = Buffer.from([0x50, 0x4b, 0x03, 0x04])
+
+    expect(fixture.subarray(0, 4)).toEqual(zipMagic)
     const meta = await getJson<{ data: { fileSize: number; fileType: string } }>(
       '/api/files/mp4.zip/meta',
     )
@@ -171,6 +171,27 @@ describe('playground upload/download server', () => {
     expect(range.status).toBe(206)
     expect(range.body).toEqual(fixture.subarray(0, 16))
   })
+
+  async function restartServer(options: Parameters<typeof createPlaygroundServer>[0] = {}) {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error?: Error) => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+    await rm(storageDir, { force: true, recursive: true })
+    storageDir = await mkdtemp(join(process.cwd(), 'temp', 'slice-upload-utils-'))
+    await startServer(options)
+  }
+
+  async function startServer(options: Parameters<typeof createPlaygroundServer>[0] = {}) {
+    server = createPlaygroundServer({ seedDemoFile: false, storageDir, ...options })
+    await server.ready
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (!address || typeof address === 'string') throw new Error('server did not start')
+    baseUrl = `http://127.0.0.1:${address.port}`
+  }
 
   async function postJson<T = any>(path: string, body: unknown): Promise<T> {
     const response = await requestRaw(path, {
