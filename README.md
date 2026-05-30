@@ -75,8 +75,10 @@ import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'sl
 import { useSliceUpload } from 'slice-upload-utils/vue'
 
 const file = ref<File>()
+// 2 MiB per chunk. Adjust this to match your backend limits.
 const chunkSize = 1024 ** 2 * 2
 
+// Bind the current file and upload lifecycle callbacks.
 const { progress, status, start, pause, cancel } = useSliceUpload({
   chunkSize,
   file,
@@ -86,6 +88,8 @@ const { progress, status, start, pause, cancel } = useSliceUpload({
 })
 
 async function preVerifyRequest(params: PreVerifyUploadParams) {
+  // Ask the server which chunks already exist.
+  // Return true for instant upload, or chunkHash[] for resumable upload.
   const result = await fetch('/api/upload/verify', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },
@@ -96,9 +100,11 @@ async function preVerifyRequest(params: PreVerifyUploadParams) {
 }
 
 async function uploadChunk(params: UploadParams) {
+  // ajaxRequest is a helper bound to this chunk. Send the rest as form fields.
   const { ajaxRequest, ...fields } = params
   const data = new FormData()
 
+  // The playground protocol expects chunkSize together with each chunk.
   data.append('chunkSize', String(chunkSize))
   Object.entries(fields).forEach(([key, value]) => {
     if (value === null || value === undefined) return
@@ -114,6 +120,7 @@ async function uploadChunk(params: UploadParams) {
 }
 
 async function mergeChunks(params: UploadFinishParams) {
+  // Called after every missing chunk is accepted.
   await fetch('/api/upload/merge', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },
@@ -122,6 +129,7 @@ async function mergeChunks(params: UploadFinishParams) {
 }
 
 function handleFileChange(event: Event) {
+  // Updating file lets the hook prepare chunks for the selected file.
   file.value = (event.target as HTMLInputElement).files?.[0]
 }
 </script>
@@ -142,10 +150,12 @@ import { useState } from 'react'
 import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'slice-upload-utils'
 import { useSliceUpload } from 'slice-upload-utils/react'
 
+// 2 MiB per chunk. Adjust this to match your backend limits.
 const chunkSize = 1024 ** 2 * 2
 
 export function UploadPanel() {
   const [file, setFile] = useState<File | null>(null)
+  // Bind the current file and upload lifecycle callbacks.
   const upload = useSliceUpload({
     chunkSize,
     file,
@@ -168,6 +178,8 @@ export function UploadPanel() {
 }
 
 async function preVerifyRequest(params: PreVerifyUploadParams) {
+  // Ask the server which chunks already exist.
+  // Return true for instant upload, or chunkHash[] for resumable upload.
   const result = await fetch('/api/upload/verify', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },
@@ -178,9 +190,11 @@ async function preVerifyRequest(params: PreVerifyUploadParams) {
 }
 
 async function uploadChunk(params: UploadParams) {
+  // ajaxRequest is a helper bound to this chunk. Send the rest as form fields.
   const { ajaxRequest, ...fields } = params
   const data = new FormData()
 
+  // The playground protocol expects chunkSize together with each chunk.
   data.append('chunkSize', String(chunkSize))
   Object.entries(fields).forEach(([key, value]) => {
     if (value === null || value === undefined) return
@@ -196,6 +210,7 @@ async function uploadChunk(params: UploadParams) {
 }
 
 async function mergeChunks(params: UploadFinishParams) {
+  // Called after every missing chunk is accepted.
   await fetch('/api/upload/merge', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },
@@ -223,22 +238,26 @@ import { useSliceDownload } from 'slice-upload-utils/vue'
 
 const filename = 'mp4.zip'
 
+// autoSave saves the merged File after all ranges finish.
 const { progress, status, start, pause, cancel, setFileOptions } = useSliceDownload({
   autoSave: true,
   request: downloadChunk,
 })
 
 async function downloadChunk(params: DownloadParams) {
+  // ajaxRequest automatically adds the Range header for this chunk.
   return params.ajaxRequest<Blob>({
     url: `/api/files/${encodeURIComponent(params.filename)}/content`,
   })
 }
 
 async function handleDownload() {
+  // Fetch metadata first so the hook knows the file name, size, and MIME type.
   const meta = await fetch(`/api/files/${encodeURIComponent(filename)}/meta`)
     .then((res) => res.json())
     .then((res) => res.data)
 
+  // setFileOptions must run before start() when options are loaded async.
   setFileOptions({
     filename: meta.filename,
     fileSize: meta.fileSize,
@@ -263,22 +282,26 @@ import type { DownloadParams } from 'slice-upload-utils'
 import { useSliceDownload } from 'slice-upload-utils/react'
 
 function DownloadButton() {
+  // autoSave saves the merged File after all ranges finish.
   const download = useSliceDownload({
     autoSave: true,
     request: downloadChunk,
   })
 
   async function downloadChunk(params: DownloadParams) {
+    // ajaxRequest automatically adds the Range header for this chunk.
     return params.ajaxRequest<Blob>({
       url: `/api/files/${encodeURIComponent(params.filename)}/content`,
     })
   }
 
   async function handleDownload() {
+    // Fetch metadata first so the hook knows the file name, size, and MIME type.
     const meta = await fetch('/api/files/mp4.zip/meta')
       .then((res) => res.json())
       .then((res) => res.data)
 
+    // setFileOptions must run before start() when options are loaded async.
     download.setFileOptions({
       filename: meta.filename,
       fileSize: meta.fileSize,

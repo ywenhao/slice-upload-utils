@@ -75,8 +75,10 @@ import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'sl
 import { useSliceUpload } from 'slice-upload-utils/vue'
 
 const file = ref<File>()
+// 每个分片 2 MiB，可按后端限制调整。
 const chunkSize = 1024 ** 2 * 2
 
+// 绑定当前文件和上传流程回调。
 const { progress, status, start, pause, cancel } = useSliceUpload({
   chunkSize,
   file,
@@ -86,6 +88,8 @@ const { progress, status, start, pause, cancel } = useSliceUpload({
 })
 
 async function preVerifyRequest(params: PreVerifyUploadParams) {
+  // 询问服务端哪些分片已经存在。
+  // 返回 true 表示秒传完成，返回 chunkHash[] 表示可断点续传。
   const result = await fetch('/api/upload/verify', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },
@@ -96,9 +100,11 @@ async function preVerifyRequest(params: PreVerifyUploadParams) {
 }
 
 async function uploadChunk(params: UploadParams) {
+  // ajaxRequest 已绑定当前分片，其余字段作为表单字段提交。
   const { ajaxRequest, ...fields } = params
   const data = new FormData()
 
+  // playground 协议要求每个分片请求都带上 chunkSize。
   data.append('chunkSize', String(chunkSize))
   Object.entries(fields).forEach(([key, value]) => {
     if (value === null || value === undefined) return
@@ -114,6 +120,7 @@ async function uploadChunk(params: UploadParams) {
 }
 
 async function mergeChunks(params: UploadFinishParams) {
+  // 所有缺失分片上传成功后调用，用于通知服务端合并。
   await fetch('/api/upload/merge', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },
@@ -122,6 +129,7 @@ async function mergeChunks(params: UploadFinishParams) {
 }
 
 function handleFileChange(event: Event) {
+  // 更新 file 后，hook 会为新选择的文件准备分片。
   file.value = (event.target as HTMLInputElement).files?.[0]
 }
 </script>
@@ -142,10 +150,12 @@ import { useState } from 'react'
 import type { PreVerifyUploadParams, UploadFinishParams, UploadParams } from 'slice-upload-utils'
 import { useSliceUpload } from 'slice-upload-utils/react'
 
+// 每个分片 2 MiB，可按后端限制调整。
 const chunkSize = 1024 ** 2 * 2
 
 export function UploadPanel() {
   const [file, setFile] = useState<File | null>(null)
+  // 绑定当前文件和上传流程回调。
   const upload = useSliceUpload({
     chunkSize,
     file,
@@ -168,6 +178,8 @@ export function UploadPanel() {
 }
 
 async function preVerifyRequest(params: PreVerifyUploadParams) {
+  // 询问服务端哪些分片已经存在。
+  // 返回 true 表示秒传完成，返回 chunkHash[] 表示可断点续传。
   const result = await fetch('/api/upload/verify', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },
@@ -178,9 +190,11 @@ async function preVerifyRequest(params: PreVerifyUploadParams) {
 }
 
 async function uploadChunk(params: UploadParams) {
+  // ajaxRequest 已绑定当前分片，其余字段作为表单字段提交。
   const { ajaxRequest, ...fields } = params
   const data = new FormData()
 
+  // playground 协议要求每个分片请求都带上 chunkSize。
   data.append('chunkSize', String(chunkSize))
   Object.entries(fields).forEach(([key, value]) => {
     if (value === null || value === undefined) return
@@ -196,6 +210,7 @@ async function uploadChunk(params: UploadParams) {
 }
 
 async function mergeChunks(params: UploadFinishParams) {
+  // 所有缺失分片上传成功后调用，用于通知服务端合并。
   await fetch('/api/upload/merge', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },
@@ -223,22 +238,26 @@ import { useSliceDownload } from 'slice-upload-utils/vue'
 
 const filename = 'mp4.zip'
 
+// autoSave 会在所有 Range 分片完成后自动保存合并后的文件。
 const { progress, status, start, pause, cancel, setFileOptions } = useSliceDownload({
   autoSave: true,
   request: downloadChunk,
 })
 
 async function downloadChunk(params: DownloadParams) {
+  // ajaxRequest 会自动为当前分片带上 Range header。
   return params.ajaxRequest<Blob>({
     url: `/api/files/${encodeURIComponent(params.filename)}/content`,
   })
 }
 
 async function handleDownload() {
+  // 先获取文件元信息，让 hook 知道文件名、大小和 MIME 类型。
   const meta = await fetch(`/api/files/${encodeURIComponent(filename)}/meta`)
     .then((res) => res.json())
     .then((res) => res.data)
 
+  // 文件信息异步获取时，需要先 setFileOptions，再 start()。
   setFileOptions({
     filename: meta.filename,
     fileSize: meta.fileSize,
@@ -263,22 +282,26 @@ import type { DownloadParams } from 'slice-upload-utils'
 import { useSliceDownload } from 'slice-upload-utils/react'
 
 function DownloadButton() {
+  // autoSave 会在所有 Range 分片完成后自动保存合并后的文件。
   const download = useSliceDownload({
     autoSave: true,
     request: downloadChunk,
   })
 
   async function downloadChunk(params: DownloadParams) {
+    // ajaxRequest 会自动为当前分片带上 Range header。
     return params.ajaxRequest<Blob>({
       url: `/api/files/${encodeURIComponent(params.filename)}/content`,
     })
   }
 
   async function handleDownload() {
+    // 先获取文件元信息，让 hook 知道文件名、大小和 MIME 类型。
     const meta = await fetch('/api/files/mp4.zip/meta')
       .then((res) => res.json())
       .then((res) => res.data)
 
+    // 文件信息异步获取时，需要先 setFileOptions，再 start()。
     download.setFileOptions({
       filename: meta.filename,
       fileSize: meta.fileSize,
