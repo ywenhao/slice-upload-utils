@@ -47,7 +47,7 @@ pnpm dev
 
 The Vue example accesses `/api` through the Vite proxy. The server runs at `http://127.0.0.1:10010`.
 
-The repository includes `playground/fixtures/mp4.zip`, which is exposed by the server as a test download file. It is a Git LFS file and is only used by the GitHub repository, playground, and tests. The npm package only includes `dist`, so this fixture is not published.
+The playground server is implemented in TypeScript and runs directly on Node 24. The repository includes `playground/fixtures/mp4.zip`, which is exposed by the server as a test download file. It is a Git LFS file and is only used by the GitHub repository, playground, and tests. The npm package only includes `dist`, so this fixture is not published.
 
 Before the first checkout, install and enable Git LFS so `git pull` replaces LFS pointer files with real files:
 
@@ -332,6 +332,8 @@ const { start, pause, cancel, setFileOptions, chunks, progress, status, instance
 ## Server Protocol
 
 This repository includes a dependency-free Node playground server that can be used as a backend protocol reference.
+
+For detailed architecture notes, implementation details, flow charts, and reviewed edge cases, see [Upload And Download Flow](./docs/upload-download-flow.md).
 
 ### `POST /api/upload/verify`
 

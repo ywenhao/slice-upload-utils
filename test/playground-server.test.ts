@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { request as httpRequest } from 'node:http'
-import { createPlaygroundServer } from '../playground/server/src/server.js'
+import { createPlaygroundServer } from '../playground/server/src/server'
 import { defineSliceDownload, defineSliceUpload, getHashChunks } from '../src'
 import { createDeferred, createFile } from './helpers'
 
@@ -149,6 +149,86 @@ describe('playground upload/download server', () => {
 
     expect(download.status).toBe('success')
     expect(downloadedText).toBe(await source.text())
+  })
+
+  it('handles HEAD, suffix ranges, and unsatisfiable ranges', async () => {
+    await writeFile(join(storageDir, 'files', 'ranges.txt'), 'abcdef')
+
+    const head = await requestRaw('/api/files/ranges.txt/content', { method: 'HEAD' })
+    expect(head.status).toBe(200)
+    expect(head.headers['content-length']).toBe('6')
+    expect(head.body).toHaveLength(0)
+
+    const suffix = await requestRaw('/api/files/ranges.txt/content', {
+      headers: { Range: 'bytes=-2' },
+    })
+    expect(suffix.status).toBe(206)
+    expect(suffix.headers['content-range']).toBe('bytes 4-5/6')
+    await expect(suffix.text()).resolves.toBe('ef')
+
+    const unsatisfiable = await requestRaw('/api/files/ranges.txt/content', {
+      headers: { Range: 'bytes=10-12' },
+    })
+    expect(unsatisfiable.status).toBe(416)
+    expect(unsatisfiable.headers['content-range']).toBe('bytes */6')
+  })
+
+  it('replaces retried chunks by index before verify and merge', async () => {
+    const uploadFields = {
+      chunkSize: 3,
+      chunkTotal: 2,
+      filename: 'retry.txt',
+      preHash: 'retry-prehash',
+    }
+
+    expect(
+      await postMultipart('/api/upload/chunk', {
+        ...uploadFields,
+        chunk: new Blob(['bad']),
+        chunkHash: 'old-hash',
+        index: 0,
+      }).then((response) => response.ok),
+    ).toBe(true)
+    expect(
+      await postMultipart('/api/upload/chunk', {
+        ...uploadFields,
+        chunk: new Blob(['new']),
+        chunkHash: 'new-hash',
+        index: 0,
+      }).then((response) => response.ok),
+    ).toBe(true)
+    expect(
+      await postMultipart('/api/upload/chunk', {
+        ...uploadFields,
+        chunk: new Blob(['ok']),
+        chunkHash: 'tail-hash',
+        index: 1,
+      }).then((response) => response.ok),
+    ).toBe(true)
+
+    const verify = await postJson<{ data: string[] | true }>('/api/upload/verify', uploadFields)
+    expect(verify.data).toBe(true)
+
+    await postJson('/api/upload/merge', uploadFields)
+    await expect(readFile(join(storageDir, 'files', 'retry.txt'), 'utf8')).resolves.toBe('newok')
+  })
+
+  it('requires chunkTotal for verify and merge', async () => {
+    const verify = await requestRaw('/api/upload/verify', {
+      body: JSON.stringify({ preHash: 'missing-total' }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    })
+    expect(verify.status).toBe(400)
+    await expect(verify.text()).resolves.toContain('chunkTotal must be an integer')
+
+    const merge = await requestRaw('/api/upload/merge', {
+      body: JSON.stringify({ filename: 'missing.txt', preHash: 'missing-total' }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    })
+    expect(merge.status).toBe(400)
+    await expect(merge.text()).resolves.toContain('chunkTotal must be an integer')
   })
 
   it('serves the checked-in mp4.zip fixture without publishing it as library code', async () => {

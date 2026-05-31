@@ -304,13 +304,13 @@ export class SliceUpload {
       this.emitFinish()
     }
 
+    if (!_sliceFileChunks.length) return
+
     const failChunks = this.sliceFileChunks.filter((v) => v.status === 'error')
     failChunks.forEach((v) => (v.status = 'ready'))
 
     this.emit('start')
     this.emitProgress()
-
-    if (!_sliceFileChunks.length) return
 
     const { promiseList } = this.createPromiseList(_sliceFileChunks)
 

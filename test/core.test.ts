@@ -228,7 +228,9 @@ describe('SliceUpload', () => {
     const upload = defineSliceUpload({ file, chunkSize: 2 })
     const request = vi.fn<UploadRequest>()
     const finish = vi.fn<(params: UploadFinishParams) => void>()
+    const start = vi.fn<() => void>()
 
+    upload.on('start', start)
     upload.on('finish', finish)
     upload.setPreVerifyRequest(async () => true)
     upload.setUploadRequest(request)
@@ -236,6 +238,7 @@ describe('SliceUpload', () => {
     await upload.start()
 
     expect(request).not.toHaveBeenCalled()
+    expect(start).not.toHaveBeenCalled()
     expect(upload.status).toBe('success')
     expect(finish).toHaveBeenCalled()
   })
@@ -511,6 +514,39 @@ describe('SliceDownload', () => {
 
     expect(download.status).toBe('error')
     expect(error).toHaveBeenCalledWith(expect.any(AjaxRequestError))
+  })
+
+  it('waits for download request resolution before finishing ajax chunks', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const download = defineSliceDownload({
+      autoSave: false,
+      fileSize: 2,
+      filename: 'out.txt',
+    })
+    const finish = vi.fn<(params: DownloadFinishParams) => void>()
+
+    download.on('finish', finish)
+    download.setDownloadRequest((params) => params.ajaxRequest({ url: '/download' }))
+
+    const start = download.start()
+    await waitFor(() => expect(FakeXMLHttpRequest.instances[0]).toBeDefined())
+    const xhr = FakeXMLHttpRequest.instances[0]!
+    xhr.progress(1, 1)
+
+    expect(download.status).toBe('downloading')
+    expect(download.progress).toBe(99)
+    expect(finish).not.toHaveBeenCalled()
+
+    xhr.status = 200
+    xhr.response = new Blob(['ok'])
+    xhr.load()
+    await start
+
+    expect(download.status).toBe('success')
+    expect(download.progress).toBe(100)
+    expect(finish).toHaveBeenCalledOnce()
+    expect(await finish.mock.calls[0]![0].file.text()).toBe('ok')
   })
 })
 

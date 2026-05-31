@@ -179,9 +179,7 @@ export class SliceDownload {
       this.emitProgress()
     }
 
-    const _sliceFileChunks = this.sliceFileChunks.filter(
-      (v) => v.status !== 'success' && v.progress !== 100,
-    )
+    const _sliceFileChunks = this.sliceFileChunks.filter((v) => v.status !== 'success')
     if (this.sliceFileChunks.length && !_sliceFileChunks.length) {
       this.emitProgress()
       this.emitFinish()
@@ -383,15 +381,12 @@ export class SliceDownload {
         onDownloadProgress: (evt) => {
           if (abortFn()) return
 
-          if (evt.percent === 100) {
-            chunk.status = 'success'
-            chunk.retryCount = 0
-            chunk.progress = 100
-          }
-
           const progress = chunk.progress
           // 防止进度条出现后退
           if (progress < evt.percent) chunk.progress = evt.percent
+
+          // 接口返回并保存 Blob 之前，进度条不得超过99
+          if (evt.percent >= 99) chunk.progress = 99
 
           if (evt.percent !== 100 && !this.stop && chunk.status !== 'error')
             chunk.status = 'downloading'
@@ -426,9 +421,8 @@ export class SliceDownload {
   private emitFinish() {
     if (this.status === 'success') {
       const { filename, chunkSize, fileType } = this
-      const chunks = this.sliceFileChunks
-        .filter((v) => v.status === 'success' && v.file)
-        .map((v) => v.file!)
+      const chunks = this.sliceFileChunks.map((v) => v.file)
+      if (!chunks.every((file): file is Blob | File => file instanceof Blob)) return
       const file = mergeFile(chunks, filename, fileType)
       if (this.autoSave) saveFile(file, filename)
       this.emit('finish', { file, chunkSize, chunkTotal: this.sliceFileChunks.length })

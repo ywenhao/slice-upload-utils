@@ -56,8 +56,9 @@
     "prepublishOnly": "pnpm build",
     "release": "bumpp && npm publish",
     "test": "vitest --environment happy-dom --maxWorkers 1 --no-file-parallelism",
-    "typecheck": "pnpm typecheck:lib && pnpm typecheck:vue",
+    "typecheck": "pnpm typecheck:lib && pnpm typecheck:server && pnpm typecheck:vue",
     "typecheck:lib": "tsc --noEmit",
+    "typecheck:server": "pnpm -C playground/server typecheck",
     "typecheck:vue": "pnpm -C playground/vue typecheck"
   },
   "dependencies": {
