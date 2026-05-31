@@ -62,6 +62,10 @@ If you already checked out the 134-byte pointer file, run:
 git lfs pull --include=playground/fixtures/mp4.zip
 ```
 
+## Upload And Download Flow
+
+For flow charts, architecture notes, implementation details, and reviewed edge cases, see [Upload And Download Flow](./docs/upload-download-flow.md).
+
 ## Upload Usage
 
 Use `params.ajaxRequest` inside your `request` function. It is already bound to the current chunk and works correctly with concurrent uploads, async pre-checks, retries, pause, and cancel.
@@ -332,8 +336,6 @@ const { start, pause, cancel, setFileOptions, chunks, progress, status, instance
 ## Server Protocol
 
 This repository includes a dependency-free Node playground server that can be used as a backend protocol reference.
-
-For detailed architecture notes, implementation details, flow charts, and reviewed edge cases, see [Upload And Download Flow](./docs/upload-download-flow.md).
 
 ### `POST /api/upload/verify`
 

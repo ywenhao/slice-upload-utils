@@ -62,6 +62,10 @@ git pull
 git lfs pull --include=playground/fixtures/mp4.zip
 ```
 
+## 上传下载流程
+
+流程图、完整架构说明、实现细节和已审查边界见 [上传下载完整流程](./docs/upload-download-flow.md)。
+
 ## 上传用法
 
 推荐在 `request` 里使用 `params.ajaxRequest`。它已经绑定当前分片，适合并发上传、异步预检、重试、暂停和取消。
@@ -332,8 +336,6 @@ const { start, pause, cancel, setFileOptions, chunks, progress, status, instance
 ## 服务端接口约定
 
 仓库内置了一个无框架依赖的 Node playground server，可作为后端协议参考。
-
-完整架构说明、实现细节、流程图和已审查边界见 [上传下载完整流程](./docs/upload-download-flow.md)。
 
 ### `POST /api/upload/verify`
 
