@@ -12,7 +12,7 @@
 
 `slice-upload-utils` 提供大文件分片上传、分片下载、断点续传、秒传、暂停、取消，以及 Vue / React hooks。
 
-上传侧会先把文件切片并计算 `preHash`、`chunkHash`。默认使用抽样 hash，适合大多数业务；需要严格校验时可以开启 `realPreHash` 或 `realChunkHash`，代价是更长的计算时间。
+上传侧会先把文件切片并计算 `preHash`、`chunkHash`。hash 使用 SHA-256：小体积内容优先使用浏览器原生 Web Crypto API，`@noble/hashes` 作为 ESM 兜底并负责大文件增量计算。默认使用抽样 hash，适合大多数业务；需要严格校验时可以开启 `realPreHash` 或 `realChunkHash`，代价是更长的计算时间。
 
 下载侧使用 HTTP Range 请求并发拉取分片，完成后按顺序合并为一个 `File`，默认会自动保存。
 
@@ -30,9 +30,13 @@ import { useSliceDownload, useSliceUpload } from 'slice-upload-utils/vue'
 import { useSliceDownload as useReactSliceDownload } from 'slice-upload-utils/react'
 ```
 
-Vue hooks 仍保留在主入口导出以兼容旧代码；新代码推荐使用 `slice-upload-utils/vue` 和 `slice-upload-utils/react` 这类明确入口。
+主入口保持框架无关。Vue 和 React hooks 放在明确的可选子入口里，应用只需要安装和打包自己实际用到的框架适配。
 
-包只提供 ESM 产物，推荐在 Vite、Nuxt、Next、现代 Node ESM 或其他支持 ESM 的打包环境中使用。
+包只提供 ESM 产物，推荐在 Vite、Nuxt、Next、现代 Node ESM 或其他支持 ESM 的打包环境中使用。工具链和 Node 侧使用建议 Node `>=20.19`；playground 使用 Node 24。
+
+### Hash 兼容性
+
+当前版本使用 SHA-256，不再使用 MD5。如果从旧的 MD5 版本升级，服务端已有的断点续传缓存无法直接匹配新的 `preHash` 和 `chunkHash`。迁移时请清理旧分片，或确保客户端与服务端使用同一套 hash 策略。
 
 ## 本地 Playground
 

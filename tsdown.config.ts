@@ -13,6 +13,6 @@ export default defineConfig({
   platform: 'browser',
   target: 'es2020',
   deps: {
-    neverBundle: ['react', 'spark-md5', 'vue'],
+    neverBundle: ['@noble/hashes', 'react', 'vue'],
   },
 })

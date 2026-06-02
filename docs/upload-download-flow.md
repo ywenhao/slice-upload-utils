@@ -55,7 +55,10 @@ flowchart TD
 ### Upload Implementation Details
 
 - `getHashChunks` creates a `preHash` and a chunk list. Small files use the source file as the single chunk.
+- Hashes use SHA-256. Small payloads prefer browser-native Web Crypto, while `@noble/hashes` provides the ESM fallback and incremental large-file path.
 - Default hash mode is sampled. `realPreHash` hashes the full file, and `realChunkHash` hashes each chunk.
+- When `realPreHash` and `realChunkHash` both require strict hashing, the implementation reuses the same chunk reads to avoid scanning large files twice.
+- Changing the hash algorithm changes `preHash` and `chunkHash`; treat that as a breaking change for resumable upload caches.
 - `preVerifyRequest` returns `true` for instant upload, or a `chunkHash[]` for resumable upload.
 - Duplicate `chunkHash` values are handled by index matching. `getVerifiedChunkIndexes` consumes hash counts so identical chunk content does not mark too many chunks as uploaded.
 - `params.ajaxRequest` is non-enumerable and bound with both `chunkIndex` and `chunkHash`. This avoids wrong chunk binding after awaits or concurrent uploads.

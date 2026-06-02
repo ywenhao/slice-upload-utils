@@ -75,10 +75,34 @@ describe('hash and chunk helpers', () => {
     expect(getCustomChunkHash('file-hash', 2, 1)).not.toBe(getCustomChunkHash('file-hash', 2, 2))
   })
 
-  it('hashes files incrementally instead of reading the whole file at once', async () => {
+  it('uses SHA-256 hex digests for file and custom hashes', async () => {
+    const file = createFile('abc')
+    vi.stubGlobal('crypto', undefined)
+
+    expect(await getFileHash(file)).toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    )
+    expect(getCustomChunkHash('file-hash', 2, 1)).toMatch(/^[a-f0-9]{64}$/)
+  })
+
+  it('uses native Web Crypto for small file hashes when available', async () => {
+    const file = createFile('abcdef')
+    const subtle = {
+      digest: vi.fn<SubtleCrypto['digest']>(async () => new Uint8Array([1, 2, 3]).buffer),
+    }
+    vi.stubGlobal('crypto', { subtle })
+
+    const hash = await getFileHash(file, 2)
+
+    expect(hash).toBe('010203')
+    expect(subtle.digest).toHaveBeenCalledWith('SHA-256', expect.any(ArrayBuffer))
+  })
+
+  it('falls back to incremental hashing for larger files', async () => {
     const file = createFile('abcdef')
     const readChunks: string[] = []
     const originalSlice = file.slice.bind(file)
+    vi.stubGlobal('crypto', undefined)
     const slice = vi.spyOn(file, 'slice').mockImplementation((start, end, contentType) => {
       const chunk = originalSlice(start, end, contentType)
       readChunks.push(`${start}-${end}`)
@@ -87,7 +111,7 @@ describe('hash and chunk helpers', () => {
 
     const hash = await getFileHash(file, 2)
 
-    expect(hash).toMatch(/^[a-f0-9]{32}$/)
+    expect(hash).toMatch(/^[a-f0-9]{64}$/)
     expect(slice).toHaveBeenCalledTimes(3)
     expect(readChunks).toEqual(['0-2', '2-4', '4-6'])
   })
@@ -146,6 +170,36 @@ describe('hash and chunk helpers', () => {
       await getFileHash(new Blob(['cd'])),
       await getFileHash(new Blob(['ef'])),
     ])
+  })
+
+  it('reuses real chunk reads when full preHash must also be computed', async () => {
+    const file = createFile('abcdef')
+    const originalSlice = file.slice.bind(file)
+    const read = vi.fn<() => void>()
+    vi.stubGlobal('crypto', undefined)
+    vi.spyOn(file, 'slice').mockImplementation((start, end, contentType) => {
+      const chunk = originalSlice(start, end, contentType)
+      vi.spyOn(chunk, 'arrayBuffer').mockImplementation(async () => {
+        read()
+        return await Blob.prototype.arrayBuffer.call(chunk)
+      })
+      return chunk
+    })
+
+    const result = await getHashChunks({
+      file,
+      chunkSize: 2,
+      realChunkHash: true,
+      realPreHash: true,
+    })
+
+    expect(result.preHash).toBe(await getFileHash(createFile('abcdef'), 2))
+    expect(result.fileChunks.map((chunk) => chunk.chunkHash)).toEqual([
+      await getFileHash(new Blob(['ab'])),
+      await getFileHash(new Blob(['cd'])),
+      await getFileHash(new Blob(['ef'])),
+    ])
+    expect(read).toHaveBeenCalledTimes(3)
   })
 })
 

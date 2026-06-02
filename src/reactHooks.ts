@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RequestOptions } from './request'
 import type { DownloadEventType, UploadEventType } from './types'
-import type { SliceDownloadStatus, SliceUploadOptions, SliceUploadStatus } from './types'
+import type {
+  SliceDownloadChunk,
+  SliceDownloadStatus,
+  SliceUploadChunk,
+  SliceUploadOptions,
+  SliceUploadStatus,
+} from './types'
 import type { DownloadRequest, SetDownloadFileOptions, SliceDownloadOptions } from './download'
 import type { PreVerifyUploadRequest, UploadRequest } from './upload'
 import { defineSliceDownload, type SliceDownload } from './download'
 import { defineSliceUpload, type SliceUpload } from './upload'
-import type { SliceDownloadChunk, SliceUploadChunk } from './vueHooks'
 
 export interface UseReactSliceUploadOptions extends Omit<SliceUploadOptions, 'file'> {
   file?: File | null

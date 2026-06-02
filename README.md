@@ -12,7 +12,7 @@ English | [简体中文](./README.zh-CN.md)
 
 `slice-upload-utils` provides large-file sliced upload, sliced download, resumable upload, instant upload, pause, cancel, and Vue / React hooks.
 
-On upload, files are split into chunks and assigned a `preHash` and `chunkHash`. By default, the library uses sampled hashes, which fit most business scenarios. Enable `realPreHash` or `realChunkHash` when strict verification is required, at the cost of more hashing time.
+On upload, files are split into chunks and assigned a `preHash` and `chunkHash`. Hashes use SHA-256: small payloads prefer the browser-native Web Crypto API, while `@noble/hashes` provides the ESM fallback and incremental large-file path. By default, the library uses sampled hashes, which fit most business scenarios. Enable `realPreHash` or `realChunkHash` when strict verification is required, at the cost of more hashing time.
 
 On download, the library sends concurrent HTTP Range requests, merges chunks in order into a `File`, and saves it automatically by default.
 
@@ -30,9 +30,13 @@ import { useSliceDownload, useSliceUpload } from 'slice-upload-utils/vue'
 import { useSliceDownload as useReactSliceDownload } from 'slice-upload-utils/react'
 ```
 
-Vue hooks are still exported from the main entrypoint for compatibility. New code should prefer explicit sub-entry imports such as `slice-upload-utils/vue` and `slice-upload-utils/react`.
+The main entrypoint is framework-neutral. Vue and React hooks live in explicit optional sub-entrypoints, so apps only install and bundle the framework adapter they actually use.
 
-The package only ships ESM builds. It is recommended for Vite, Nuxt, Next, modern Node ESM, or other bundlers/runtimes that support ESM.
+The package only ships ESM builds. It is recommended for Vite, Nuxt, Next, modern Node ESM, or other bundlers/runtimes that support ESM. Tooling and Node-side usage should run on Node `>=20.19`; the playground uses Node 24.
+
+### Hash Compatibility
+
+Current versions use SHA-256 instead of MD5. If you are upgrading from an older MD5-based release, existing server-side resumable upload caches will not match the new `preHash` and `chunkHash` values. Clear old partial uploads or keep the client and server hash strategy in sync during migration.
 
 ## Local Playground
 

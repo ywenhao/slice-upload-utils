@@ -2,18 +2,17 @@ import type { Ref } from 'vue'
 import { computed, nextTick, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import type { RequestOptions } from './request'
 import type { DownloadEventType, UploadEventType } from './types'
-import type { SliceDownloadStatus, SliceUploadOptions, SliceUploadStatus } from './types'
+import type {
+  SliceDownloadChunk,
+  SliceDownloadStatus,
+  SliceUploadChunk,
+  SliceUploadOptions,
+  SliceUploadStatus,
+} from './types'
 import type { DownloadRequest, SetDownloadFileOptions, SliceDownloadOptions } from './download'
 import type { PreVerifyUploadRequest, UploadRequest } from './upload'
 import { defineSliceDownload } from './download'
 import { defineSliceUpload } from './upload'
-
-export interface SliceUploadChunk {
-  status: SliceUploadStatus
-  progress: number
-  chunkHash: string
-  index: number
-}
 
 export interface UseSliceUploadOptions extends Omit<SliceUploadOptions, 'file'> {
   file: Ref<File | null | undefined>
@@ -118,14 +117,6 @@ export function useSliceUpload(options: UseSliceUploadOptions) {
     setRequest,
     ajaxRequest,
   }
-}
-
-export interface SliceDownloadChunk {
-  status: SliceDownloadStatus
-  progress: number
-  start: number
-  end: number
-  index: number
 }
 
 export interface UseSliceDownloadOptions extends SliceDownloadOptions {

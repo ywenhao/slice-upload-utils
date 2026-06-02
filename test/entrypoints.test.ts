@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 describe('package entrypoints', () => {
-  it('exposes core and legacy Vue hooks from the main source entry', async () => {
+  it('keeps the main source entry framework-neutral', async () => {
     const main = await import('../src')
 
     expect(main.defineSliceUpload).toBeTypeOf('function')
     expect(main.defineSliceDownload).toBeTypeOf('function')
-    expect(main.useSliceUpload).toBeTypeOf('function')
-    expect(main.useSliceDownload).toBeTypeOf('function')
+    expect('useSliceUpload' in main).toBe(false)
+    expect('useSliceDownload' in main).toBe(false)
   })
 
   it('exposes Vue hooks from the Vue source entry', async () => {

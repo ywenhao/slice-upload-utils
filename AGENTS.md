@@ -21,8 +21,9 @@ This file is for AI coding agents working in this repository.
 2. Keep browser-facing library code framework-neutral unless the file is explicitly a React or Vue entry.
 3. Prefer existing helpers such as `params.ajaxRequest`, `promisePool`, `getHashChunks`, `mergeFile`, and `saveFile`.
 4. Keep upload/download protocol examples aligned across `README.md`, `playground/vue`, `playground/server`, and tests.
-5. Use `apply_patch` for focused manual edits.
-6. Do not revert user changes or unrelated local work.
+5. Keep the main entrypoint framework-neutral. Vue and React hooks belong in `slice-upload-utils/vue` and `slice-upload-utils/react`.
+6. Use `apply_patch` for focused manual edits.
+7. Do not revert user changes or unrelated local work.
 
 ## Upload/Download Protocol
 
@@ -69,4 +70,6 @@ If any command fails, fix the smallest relevant cause and repeat the full verifi
 - Avoid adding runtime dependencies for the playground server unless there is a clear need.
 - Keep large fixtures under `playground/fixtures`. They are for GitHub/playground/tests only and must stay out of the npm package.
 - Keep examples modern: `fetch`, `FormData`, explicit framework sub-entry imports, and request helpers bound from `params.ajaxRequest`.
+- Hashing uses SHA-256. Prefer browser-native Web Crypto for small payloads and `@noble/hashes` for ESM fallback or incremental large-file hashing.
+- Treat hash algorithm changes as breaking for resumable upload caches because `preHash` and `chunkHash` values change.
 - Comments should explain non-obvious behavior only.
