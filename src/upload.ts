@@ -35,7 +35,7 @@ export interface SliceUploadFileChunk extends FileChunk {
 }
 
 /**
- * 分片上传
+ * Slice upload
  */
 export class SliceUpload {
   private file: File | null
@@ -86,7 +86,7 @@ export class SliceUpload {
   }
 
   /**
-   * 设置上传文件(单个)
+   * Set the upload file (single)
    * @param file
    * @returns
    */
@@ -122,7 +122,7 @@ export class SliceUpload {
   }
 
   /**
-   * 销毁事件
+   * Destroy events
    */
   destroy() {
     this.reset()
@@ -133,7 +133,7 @@ export class SliceUpload {
   }
 
   /**
-   * 设置上传请求函数
+   * Set the upload request function
    * @param request UploadRequest
    * @returns
    */
@@ -200,7 +200,7 @@ export class SliceUpload {
           reject(evt)
         },
         onError: (evt) => {
-          // 重试
+          // retry
           if (chunk.retryCount < this.retryCount) {
             if (this.retryDelay > 0) setTimeout(() => retryFn(), this.retryDelay)
             else retryFn()
@@ -220,10 +220,10 @@ export class SliceUpload {
           if (abortFn()) return
 
           const progress = chunk.progress
-          // 防止进度条出现后退
+          // Prevent the progress bar from going backwards
           if (progress < evt.percent) chunk.progress = evt.percent
 
-          // 在接口返回之前，进度条不得超过99
+          // Cap progress at 99 until the response resolves
           if (evt.percent >= 99) chunk.progress = 99
 
           if (evt.percent !== 100 && !this.stop && chunk.status !== 'error')
@@ -239,7 +239,7 @@ export class SliceUpload {
   }
 
   /**
-   * 设置上传前验证函数
+   * Set the pre-upload verify function
    * @param request
    * @returns
    */
@@ -249,7 +249,7 @@ export class SliceUpload {
   }
 
   /**
-   * 开始上传
+   * Start upload
    */
   async start() {
     if (['uploading', 'success'].includes(this.status)) return
@@ -274,7 +274,7 @@ export class SliceUpload {
     }
 
     let _sliceFileChunks = this.sliceFileChunks.slice()
-    //  预检
+    //  pre-verify
     if (this.preVerifyRequestInstance) {
       const { preHash, file, chunkSize } = this
       let result: string[] = []
@@ -375,7 +375,7 @@ export class SliceUpload {
           return false
         }
 
-        // 接口返回之后，进度条才能到100
+        // The progress bar can reach 100 only after the response returns
         if (flag) {
           sliceChunk.status = 'success'
           sliceChunk.retryCount = 0
@@ -459,7 +459,7 @@ export class SliceUpload {
   }
 
   /**
-   * 取消上传
+   * Cancel upload
    */
   abort() {
     this.xhr.forEach((v) => v && v.abort())
@@ -467,7 +467,7 @@ export class SliceUpload {
   }
 
   /**
-   * 暂停上传
+   * Pause upload
    */
   pause() {
     this.isPause = true
@@ -476,7 +476,7 @@ export class SliceUpload {
   }
 
   /**
-   * 取消上传
+   * Cancel upload
    */
   cancel() {
     this.isCancel = true
@@ -500,14 +500,14 @@ export class SliceUpload {
   }
 
   /**
-   * 获取文件
+   * Get the file
    */
   getFile() {
     return this.file
   }
 
   /**
-   * 获取分片，hash, file, chunks
+   * Get chunks, hash, file, chunks
    */
   getData() {
     const { preHash, sliceFileChunks, file } = this
@@ -526,7 +526,7 @@ export class SliceUpload {
   }
 
   /**
-   * 是否有文件
+   * Whether a file is set
    */
   get hasFile() {
     return !!this.file?.size
@@ -545,7 +545,7 @@ export class SliceUpload {
   }
 
   /**
-   * 上传总进度
+   * Total upload progress
    */
   get progress() {
     const chunks = this.sliceFileChunks
@@ -556,14 +556,14 @@ export class SliceUpload {
   }
 
   /**
-   * 是否已经设置上传函数
+   * Whether the upload function has been set
    */
   get hasRequestInstance() {
     return !!this.uploadRequestInstance
   }
 
   /**
-   * 状态
+   * Status
    */
   get status(): SliceUploadStatus {
     const chunks = this.sliceFileChunks

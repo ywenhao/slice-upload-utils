@@ -10,7 +10,7 @@ const { chunks, progress, status, start, pause, cancel, setFileOptions } = useSl
 
 const filename = 'mp4.zip'
 
-// 下载请求函数
+// Download request function
 async function request(params: DownloadParams) {
   const result = await params.ajaxRequest<Blob>({
     url: `/api/files/${encodeURIComponent(params.filename)}/content`,

@@ -3,13 +3,13 @@ interface DefaultEventType {
 }
 
 /**
- * 事件发射器
+ * Event emitter
  */
 export class Emitter<EventType extends DefaultEventType> {
   private eventsMap = new Map<keyof EventType, EventType[keyof EventType][]>()
 
   /**
-   * 绑定事件
+   * Bind an event
    */
   on<Key extends keyof EventType>(eventName: Key, cb: EventType[Key]) {
     const events = this.eventsMap.get(eventName) || []
@@ -19,7 +19,7 @@ export class Emitter<EventType extends DefaultEventType> {
   }
 
   /**
-   * 触发事件
+   * Emit an event
    */
   emit<Key extends keyof EventType>(eventName: Key, ...args: Parameters<EventType[Key]>) {
     const events = this.eventsMap.get(eventName) || []
@@ -28,7 +28,7 @@ export class Emitter<EventType extends DefaultEventType> {
   }
 
   /**
-   * 取消事件
+   * Remove an event
    */
   off<Key extends keyof EventType>(eventName: Key, cb?: EventType[Key]) {
     if (!cb) {

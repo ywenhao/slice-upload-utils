@@ -384,6 +384,50 @@ describe('SliceUpload', () => {
 
     expect(upload.status).toBe('cancel')
   })
+
+  it('retries a timed-out chunk and succeeds on a later attempt', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const upload = defineSliceUpload({
+      chunkSize: 2,
+      file: createFile('ab'),
+      poolCount: 1,
+      retryCount: 2,
+      retryDelay: 0,
+    })
+
+    upload.setUploadRequest((params) => params.ajaxRequest({ url: '/timeout-upload' }))
+
+    const start = upload.start()
+    await waitFor(() => expect(FakeXMLHttpRequest.instances[0]).toBeDefined())
+    const xhr = FakeXMLHttpRequest.instances[0]!
+    // With retryDelay 0, the retry synchronously reuses the same XHR instance and re-requests.
+    xhr.triggerTimeout()
+    xhr.status = 200
+    xhr.responseText = 'ok'
+    xhr.uploadProgress(1, 1)
+    xhr.load()
+    await start
+
+    expect(FakeXMLHttpRequest.instances).toHaveLength(1)
+    expect(upload.status).toBe('success')
+    expect(upload.getData().chunks[0]!.progress).toBe(100)
+  })
+
+  it('stops emitting events after destroy', async () => {
+    const file = createFile('abcd')
+    const upload = defineSliceUpload({ file, chunkSize: 2 })
+    const progress = vi.fn<(params: { progress: number }) => void>()
+
+    upload.on('progress', progress)
+    upload.setUploadRequest(async () => undefined)
+    upload.destroy()
+
+    expect(upload.getFile()).toBeNull()
+    expect(upload.hasRequestInstance).toBe(false)
+    upload.emit('progress', { progress: 100 })
+    expect(progress).not.toHaveBeenCalled()
+  })
 })
 
 describe('SliceDownload', () => {
@@ -570,6 +614,40 @@ describe('SliceDownload', () => {
     expect(error).toHaveBeenCalledWith(expect.any(AjaxRequestError))
   })
 
+  it('keeps a concurrent download chunk requestable after another chunk errors', async () => {
+    FakeXMLHttpRequest.reset()
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
+    const download = defineSliceDownload({
+      autoSave: false,
+      chunkSize: 2,
+      fileSize: 4,
+      filename: 'out.txt',
+      poolCount: 2,
+      retryCount: 0,
+    })
+
+    download.on('error', vi.fn<(error: unknown) => void>())
+    download.setDownloadRequest((params) => params.ajaxRequest({ url: `/chunk-${params.index}` }))
+
+    const start = download.start()
+    await waitFor(() => expect(FakeXMLHttpRequest.instances.length).toBe(2))
+    const failing = FakeXMLHttpRequest.instances.find((xhr) => xhr.url === '/chunk-0')!
+    const succeeding = FakeXMLHttpRequest.instances.find((xhr) => xhr.url === '/chunk-1')!
+
+    // One chunk failing must not clear another in-flight chunk's index binding.
+    failing.status = 500
+    failing.error()
+    succeeding.status = 200
+    succeeding.response = new Blob(['cd'])
+    succeeding.progress(1, 1)
+    succeeding.load()
+    await start
+
+    expect(download.getData().chunks[1]!.progress).toBe(100)
+    expect(download.getData().chunks[1]!.status).toBe('success')
+    expect(download.status).toBe('error')
+  })
+
   it('waits for download request resolution before finishing ajax chunks', async () => {
     FakeXMLHttpRequest.reset()
     vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest)
@@ -617,23 +695,32 @@ describe('file helpers', () => {
     expect(await file.text()).toBe('ab')
   })
 
-  it('saves files through an anchor download', () => {
-    const click = vi.fn<() => void>()
-    const remove = vi.fn<() => void>()
-    const anchor = {
-      click,
-      download: '',
-      href: '',
-      remove,
-    } as unknown as HTMLAnchorElement
-    const createElement = vi.spyOn(document, 'createElement').mockReturnValue(anchor)
+  it('saves files through an anchor download and revokes the url after a delay', () => {
+    vi.useFakeTimers()
+    try {
+      const click = vi.fn<() => void>()
+      const remove = vi.fn<() => void>()
+      const anchor = {
+        click,
+        download: '',
+        href: '',
+        remove,
+      } as unknown as HTMLAnchorElement
+      const createElement = vi.spyOn(document, 'createElement').mockReturnValue(anchor)
 
-    saveFile(new Blob(['a']), 'a.txt')
+      saveFile(new Blob(['a']), 'a.txt')
 
-    expect(createElement).toHaveBeenCalledWith('a')
-    expect(anchor.download).toBe('a.txt')
-    expect(click).toHaveBeenCalledOnce()
-    expect(remove).toHaveBeenCalledOnce()
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test')
+      expect(createElement).toHaveBeenCalledWith('a')
+      expect(anchor.download).toBe('a.txt')
+      expect(click).toHaveBeenCalledOnce()
+      expect(remove).toHaveBeenCalledOnce()
+      // The revoke is deferred to avoid canceling the blob before the browser starts downloading.
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+
+      vi.runAllTimers()
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

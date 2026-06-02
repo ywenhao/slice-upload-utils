@@ -4,7 +4,7 @@ import { getPreHash } from './preHash'
 import { chunkWorker } from './worker/chunk.worker'
 
 export async function getFileChunk(params: FileChunkParams): Promise<FileChunkResult> {
-  // 小文件直接计算真实hash值, chunkHash = preHash, file就是chunk
+  // Small file: compute the real hash directly. chunkHash = preHash, file is the chunk
   if (params.file.size <= params.chunkSize) {
     const preHash = params.preHash || (await getFileHash(params.file))
     return {
@@ -17,7 +17,7 @@ export async function getFileChunk(params: FileChunkParams): Promise<FileChunkRe
 }
 
 /**
- * 获取文件分片
+ * Get file chunks
  * @param param0
  * @returns
  */
@@ -26,7 +26,7 @@ export function getFileChunkWorker(params: FileChunkParams): Promise<FileChunkRe
 }
 
 /**
- * 获取文件分片,hash
+ * Get file chunks and hash
  * @param param0
  * @returns
  */
@@ -37,7 +37,7 @@ export async function getHashChunks(params: HashChunksParams) {
 
   if (!(realPreHash && file.size > chunkSize)) preHash = await getPreHash(file, chunkSize)
 
-  // 大文件，没有preHash传入，则计算真实preHash值
+  // Large file with no preHash provided: compute the real preHash
   const result = await getFileChunk({
     file,
     preHash,

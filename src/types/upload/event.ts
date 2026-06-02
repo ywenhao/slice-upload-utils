@@ -1,5 +1,5 @@
 /**
- * 上传成功参数
+ * Upload success parameters
  */
 export interface UploadFinishParams {
   file: File

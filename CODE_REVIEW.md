@@ -49,3 +49,24 @@
 - `pnpm exec oxfmt --check .github test src package.json playground/vue/package.json playground/vue/src tsconfig.json tsdown.config.ts .oxlintrc.json .oxfmtrc.json .vscode/settings.json CODE_REVIEW.md README.md`
 - `pnpm test -- --run`
 - `pnpm build`
+
+## Follow-up Review (2026-06-02)
+
+### Findings
+
+- `src/download.ts:361` / `src/download.ts:367`: `onAbort` / `onError` reset `currentRequestChunkIndex` unconditionally. With `poolCount > 1`, one chunk's abort/error could clear another in-flight chunk's binding, breaking its `params.ajaxRequest` fallback. The upload path already guarded this with an index check; the download path did not.
+- `src/download.ts:559` (`saveFile`): the object URL was revoked synchronously right after `aLink.click()`. Some browsers (e.g. Firefox) cancel the download before reading the blob. Defer the revoke.
+- `src/utils/worker/createWorkPromise.ts`: dead code, never imported. The `*.worker.ts` modules also run hashing on the main thread despite the name, so large-file hashing blocks the UI thread (real off-main-thread workers remain a TODO).
+- Test gaps: no coverage for upload retry-on-timeout, `Emitter` subscribe/unsubscribe semantics, the `destroy()` teardown path, or the concurrent download index-reset guard.
+
+### Changes
+
+- Guarded the download `currentRequestChunkIndex` reset on abort/error to match the upload path.
+- Deferred the `saveFile` object-URL revoke by 1s after the anchor click.
+- Removed the unused `createWorkPromise` helper.
+- Added `test/emitter.test.ts` plus upload retry-on-timeout, destroy teardown, and concurrent-download-guard cases; updated the `saveFile` test for the deferred revoke. Suite grew from 54 to 61 tests.
+- Synced `docs/upload-download-flow.md` with the new behavior.
+
+### Open / Deferred
+
+- The `*.worker.ts` modules do not use real Web Workers. Off-main-thread hashing for large files is still a TODO and would be the next meaningful performance improvement.

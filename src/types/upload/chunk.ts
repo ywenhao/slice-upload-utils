@@ -2,98 +2,98 @@ import type { RequestStatus } from '../../utils/ajax'
 
 export interface FileChunkParams {
   /**
-   * 上传源文件
+   * Source file to upload
    */
   file: File
   /**
-   * 前置hash,预上传文件hash
+   * Pre-hash, the hash of the file before upload
    */
   preHash?: string
   /**
-   * 是否计算前置真实hash
+   * Whether to compute the real pre-hash
    */
   realChunkHash: boolean
   /**
-   * 分片大小，单位：字节
+   * Chunk size, in bytes
    */
   chunkSize: number
 }
 
 export interface FileChunk {
   /**
-   * 分片
+   * Chunk
    */
   chunk: Blob
   /**
-   * 下标
+   * Index
    */
   index: number
   /**
-   * 分片hash
+   * Chunk hash
    */
   chunkHash: string
 }
 
 export interface FileChunkResult {
   /**
-   * 前置hash,预上传文件hash
+   * Pre-hash, the hash of the file before upload
    */
   preHash: string
   /**
-   * 分片list
+   * Chunk list
    */
   fileChunks: FileChunk[]
 }
 
 export interface SliceUploadOptions {
   /**
-   * 上传的文件
+   * File to upload
    */
   file?: File
   /**
-   * 分片大小，单位：字节
-   * @default 1024 * 1024 * 2 字节
+   * Chunk size, in bytes
+   * @default 1024 * 1024 * 2 bytes
    */
   chunkSize?: number
   /**
-   * 并发上传数
+   * Concurrent upload count
    * @default 3
    */
   poolCount?: number
   /**
-   * 请求失败后，重试次数
+   * Retry count after a request fails
    * @default 3
    */
   retryCount?: number
   /**
-   * 请求失败后，重试间隔时间，单位：毫秒
-   * @default 300 毫秒
+   * Retry interval after a request fails, in milliseconds
+   * @default 300 ms
    */
   retryDelay?: number
   /**
-   * 请求超时时间，单位：毫秒
-   * @default 15000 毫秒
+   * Request timeout, in milliseconds
+   * @default 15000 ms
    */
   timeout?: number
   /**
-   * 计算整个文件的hash，开启后比较耗时间
+   * Compute the hash of the whole file; enabling this is relatively time-consuming
    * @default false
    */
   realPreHash?: boolean
   /**
-   * 计算分片文件的hash，开启后比较耗时间
+   * Compute the hash of each chunk; enabling this is relatively time-consuming
    * @default false
    */
   realChunkHash?: boolean
 }
 
 /**
- * 分片hash参数
+ * Chunk hash parameters
  */
 export interface HashChunksParams {
   file: File
   /**
-   * 分片大小，单位：字节
+   * Chunk size, in bytes
    */
   chunkSize: number
   realChunkHash: boolean

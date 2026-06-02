@@ -11,8 +11,8 @@ export interface Sha256Hasher {
 }
 
 /**
- * 计算文件hash
- * @param file 文件
+ * Compute the file hash
+ * @param file file
  * @returns
  */
 export async function getFileHash(file: File | Blob, chunkSize = DEFAULT_HASH_CHUNK_SIZE) {
@@ -59,9 +59,9 @@ export function createSha256Hasher(): Sha256Hasher {
 }
 
 /**
- * 计算自定义文件hash
- * @param sourceHash 分片计算的hash
- * @param file 文件
+ * Compute a custom file hash
+ * @param sourceHash hash computed from chunks
+ * @param file file
  * @returns
  */
 export function getCustomFileHash(sourceHash: string, file: File) {
@@ -69,10 +69,10 @@ export function getCustomFileHash(sourceHash: string, file: File) {
 }
 
 /**
- * 计算自定义分片hash
- * @param hash 主文件hash
- * @param chunkSize 分片大小
- * @param index 下标
+ * Compute a custom chunk hash
+ * @param hash main file hash
+ * @param chunkSize chunk size
+ * @param index index
  * @returns
  */
 export function getCustomChunkHash(hash: string, chunkSize: number, index = 0) {

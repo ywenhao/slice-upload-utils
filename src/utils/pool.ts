@@ -10,11 +10,11 @@ interface PoolParams<T extends PromiseFn> {
 }
 
 /**
- * 并发控制
- * @param promiseList Promise列表
- * @param limit 并发数
- * @param resolve 单个Promise resolve
- * @param reject 单个Promise reject
+ * Concurrency control
+ * @param promiseList list of promises
+ * @param limit concurrency limit
+ * @param resolve called when a single promise resolves
+ * @param reject called when a single promise rejects
  */
 export async function promisePool<T extends PromiseFn>(params: PoolParams<T>) {
   const { promiseList, limit, resolve, reject } = params

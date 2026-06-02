@@ -33,11 +33,11 @@ function handleSelectFile(e: Event) {
   <div class="box">
     <input v-if="isUpload" type="file" @change="handleSelectFile" />
     <div class="actions">
-      <button @click="emit('start')">开始</button>
-      <button class="primary" @click="emit('pause')">暂停</button>
-      <button class="danger" @click="emit('cancel')">取消</button>
+      <button @click="emit('start')">Start</button>
+      <button class="primary" @click="emit('pause')">Pause</button>
+      <button class="danger" @click="emit('cancel')">Cancel</button>
     </div>
-    <div>总进度：{{ Math.ceil(progress) }} {{ status }}</div>
+    <div>Total progress: {{ Math.ceil(progress) }} {{ status }}</div>
     <div class="chunk-box">
       <div v-for="item in chunks" :key="item.index" class="chunk-item">
         <div class="chunk">

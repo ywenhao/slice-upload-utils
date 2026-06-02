@@ -5,7 +5,7 @@ import { useSliceUpload } from '../../../../src/vue'
 import ChunkBox from '../components/ChunkBox.vue'
 
 const chunkSize = 1024 ** 2 * 2
-// 上传的文件
+// File to upload
 const uploadFile = ref<File>()
 
 const { chunks, progress, status, start, pause, cancel } = useSliceUpload({
@@ -16,7 +16,7 @@ const { chunks, progress, status, start, pause, cancel } = useSliceUpload({
   preVerifyRequest,
 })
 
-// 预检请求 用于断点续传
+// Pre-verify request, used for resumable upload
 async function preVerifyRequest(params: PreVerifyUploadParams) {
   const result = await fetch('/api/upload/verify', {
     body: JSON.stringify(params),
@@ -27,9 +27,9 @@ async function preVerifyRequest(params: PreVerifyUploadParams) {
   return result.data
 }
 
-// 上传请求函数
+// Upload request function
 async function request(params: UploadParams) {
-  // 上传请求data数据处理
+  // Build the data payload for the upload request
   const data = new FormData()
   const { ajaxRequest, ...formParams } = params
   data.append('chunkSize', String(chunkSize))
@@ -40,7 +40,7 @@ async function request(params: UploadParams) {
     data.append(key, item)
   })
 
-  // 单条预检请求
+  // Single-chunk pre-verify request
   // const check = await axios.post('/check', {preHash: params.preHash, chunkHash: params.chunkHash})
   // if (check.data === true) {
   //   return true
@@ -54,7 +54,7 @@ async function request(params: UploadParams) {
 }
 
 async function onFinish(params: UploadFinishParams) {
-  // 通知后端合并文件
+  // Notify the backend to merge the file
   await fetch('/api/upload/merge', {
     body: JSON.stringify(params),
     headers: { 'Content-Type': 'application/json' },

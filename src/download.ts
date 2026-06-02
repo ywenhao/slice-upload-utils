@@ -7,18 +7,18 @@ import type { RequestOptions } from './request'
 
 export interface DownloadParams {
   /**
-   * 分片起始位置，单位：字节
+   * Chunk start position, in bytes
    */
   start: number
   /**
-   * 分片结束位置，单位：字节
+   * Chunk end position, in bytes
    */
   end: number
   index: number
   filename: string
   fileType: string
   /**
-   * 分片大小，单位：字节
+   * Chunk size, in bytes
    */
   chunkSize: number
   chunkTotal: number
@@ -28,13 +28,13 @@ export interface DownloadParams {
 export interface SetDownloadFileOptions {
   filename?: string
   /**
-   * 文件MIME类型
+   * File MIME type
    * @default application/octet-stream
    * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
    */
   fileType?: string
   /**
-   * 文件大小，单位：字节
+   * File size, in bytes
    */
   fileSize?: number
 }
@@ -43,44 +43,44 @@ export type DownloadRequest = (params: DownloadParams) => Promise<false | File |
 
 export interface SliceDownloadOptions {
   /**
-   * 文件大小，单位：字节
+   * File size, in bytes
    */
   fileSize?: number
   filename?: string
   /**
-   * 文件MIME类型
+   * File MIME type
    * @default application/octet-stream
    * @see https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
    */
   fileType?: string
   /**
-   * 是否自动保存
+   * Whether to save automatically
    * @default true
    */
   autoSave?: boolean
   /**
-   * 分片大小，单位：字节
-   * @default 1024 * 1024 * 2 字节
+   * Chunk size, in bytes
+   * @default 1024 * 1024 * 2 bytes
    */
   chunkSize?: number
   /**
-   * 并发下载数
+   * Concurrent download count
    * @default 3
    */
   poolCount?: number
   /**
-   * 请求失败后，重试次数
+   * Retry count after a request fails
    * @default 3
    */
   retryCount?: number
   /**
-   * 请求失败后，重试间隔时间，单位：毫秒
-   * @default 300 毫秒
+   * Retry interval after a request fails, in milliseconds
+   * @default 300 ms
    */
   retryDelay?: number
   /**
-   * 请求超时时间，单位：毫秒
-   * @default 15000 毫秒
+   * Request timeout, in milliseconds
+   * @default 15000 ms
    */
   timeout?: number
 }
@@ -89,11 +89,11 @@ export interface SliceDownloadFileChunk {
   file: Blob | File | null
   index: number
   /**
-   * 分片起始位置，单位：字节
+   * Chunk start position, in bytes
    */
   start: number
   /**
-   * 分片结束位置，单位：字节
+   * Chunk end position, in bytes
    */
   end: number
   status: SliceDownloadStatus
@@ -204,7 +204,7 @@ export class SliceDownload {
   }
 
   /**
-   * 取消下载
+   * Cancel download
    */
   abort() {
     this.xhr.forEach((v) => v && v.abort())
@@ -212,7 +212,7 @@ export class SliceDownload {
   }
 
   /**
-   * 暂停下载
+   * Pause download
    */
   pause() {
     this.isPause = true
@@ -221,7 +221,7 @@ export class SliceDownload {
   }
 
   /**
-   * 取消下载
+   * Cancel download
    */
   cancel() {
     this.isCancel = true
@@ -361,18 +361,20 @@ export class SliceDownload {
         onAbort: (evt) => {
           if (chunk.progress !== 100) chunk.status = 'ready'
 
-          this.currentRequestChunkIndex = -1
+          // For concurrent downloads, only clear the index if it still points
+          // at the current chunk, to avoid overwriting other in-flight chunks.
+          if (this.currentRequestChunkIndex === idx) this.currentRequestChunkIndex = -1
           reject(evt)
         },
         onError: (evt) => {
-          // 重试
+          // retry
           if (chunk.retryCount < this.retryCount) {
             if (this.retryDelay > 0) setTimeout(() => retryFn(), this.retryDelay)
             else retryFn()
             return
           }
           chunk.status = 'error'
-          this.currentRequestChunkIndex = -1
+          if (this.currentRequestChunkIndex === idx) this.currentRequestChunkIndex = -1
           reject(evt)
         },
         onSuccess: (evt) => {
@@ -382,10 +384,10 @@ export class SliceDownload {
           if (abortFn()) return
 
           const progress = chunk.progress
-          // 防止进度条出现后退
+          // Prevent the progress bar from going backwards
           if (progress < evt.percent) chunk.progress = evt.percent
 
-          // 接口返回并保存 Blob 之前，进度条不得超过99
+          // Cap progress at 99 until the response resolves and the Blob is saved
           if (evt.percent >= 99) chunk.progress = 99
 
           if (evt.percent !== 100 && !this.stop && chunk.status !== 'error')
@@ -400,7 +402,7 @@ export class SliceDownload {
   }
 
   /**
-   * 设置下载请求函数
+   * Set the download request function
    * @param request DownloadRequest
    * @returns
    */
@@ -496,7 +498,7 @@ export class SliceDownload {
   }
 
   /**
-   * 状态
+   * Status
    */
   get status(): SliceDownloadStatus {
     const chunks = this.sliceFileChunks
@@ -516,7 +518,7 @@ export class SliceDownload {
   }
 
   /**
-   * 下载总进度
+   * Total download progress
    */
   get progress() {
     const chunks = this.sliceFileChunks
@@ -542,25 +544,28 @@ function mergeRangeHeaders(headers: RequestHeaders | undefined, range: string): 
 }
 
 /**
- * 文件合并
- * @param files 文件列表
- * @param filename 文件名
- * @param type 文件类型
+ * Merge files
+ * @param files file list
+ * @param filename file name
+ * @param type file type
  */
 export function mergeFile(files: (File | Blob)[], filename: string, type: string) {
   return new File(files, filename, { type })
 }
 
 /**
- * 保存文件
- * @param file 文件
- * @param filename 文件名
+ * Save file
+ * @param file file
+ * @param filename file name
  */
 export function saveFile(file: File | Blob, filename: string) {
+  const url = URL.createObjectURL(file)
   const aLink = document.createElement('a')
-  aLink.href = URL.createObjectURL(file)
+  aLink.href = url
   aLink.download = filename
   aLink.click()
-  URL.revokeObjectURL(aLink.href)
   aLink.remove()
+  // A synchronous revoke can cancel the download before the browser reads the
+  // blob (e.g. Firefox), so release it after a short delay.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

@@ -26,7 +26,7 @@ export async function chunkWorker(params: FileChunkParams) {
 
   const preHash = hash || preHashHasher?.digest() || (await getBlobHash(file))
 
-  // 计算分片hash
+  // compute chunk hash
   if (!realChunkHash)
     fileChunks = fileChunks.map((v, index) => ({
       ...v,

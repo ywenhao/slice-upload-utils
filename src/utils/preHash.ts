@@ -2,13 +2,14 @@ import { getCustomFileHash, getFileHash } from './hash'
 import { preHashWorker } from './worker/preHash.worker'
 
 /**
- * 取得hash值
- * 大文件进行首尾拼接，计算hash值，小文件直接计算hash值
- * @param file 文件
- * @param chunkSize 分片大小，单位：字节
+ * Get the hash value.
+ * For large files, concatenate the head, middle, and tail to compute the hash;
+ * for small files, compute the hash directly.
+ * @param file file
+ * @param chunkSize chunk size, in bytes
  */
 export async function getPreHash(file: File, chunkSize: number) {
-  // 小文件直接计算真实hash值
+  // Small file: compute the real hash directly
   if (file.size <= chunkSize) {
     const preHash = await getFileHash(file)
     return preHash
@@ -21,9 +22,9 @@ export async function getPreHash(file: File, chunkSize: number) {
 }
 
 /**
- * 取得用于抽样 hash 的文件片段
- * @param file 文件
- * @param chunkSize 分片大小，单位：字节
+ * Get the file segment used for sampled hashing
+ * @param file file
+ * @param chunkSize chunk size, in bytes
  */
 export function getPreFile(file: File, chunkSize: number) {
   if (file.size <= chunkSize) return file

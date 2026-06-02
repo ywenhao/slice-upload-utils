@@ -107,7 +107,8 @@ flowchart TD
 - `params.ajaxRequest` automatically adds `Range: bytes=start-end` and preserves custom `Headers`.
 - XHR download progress is capped at `99` until the request resolves to a `Blob`.
 - A chunk becomes `success` only after its `Blob` is stored. `emitFinish` merges only when every chunk has a real `Blob`.
-- `mergeFile` constructs a `File` from chunks in index order. `saveFile` creates a temporary object URL and revokes it after clicking the anchor.
+- `mergeFile` constructs a `File` from chunks in index order. `saveFile` creates a temporary object URL, clicks the anchor, then revokes the URL after a short delay so the browser can start the download before the blob is released.
+- Concurrent download chunk requests only clear `currentRequestChunkIndex` when it still points at the aborting/erroring chunk, so one failed chunk cannot strand another in-flight chunk's `ajaxRequest` binding.
 
 ### Download Server Details
 
@@ -131,4 +132,7 @@ flowchart TD
 - Fixed instant-upload event ordering so `finish` is emitted without `start` when no chunk needs uploading.
 - Hardened server verify and merge to require a complete, duplicate-free index sequence.
 - Hardened chunk retry handling on the server by replacing stale parts for the same index.
-- Added tests for instant upload event order, ajax download completion ordering, and retried chunk replacement.
+- Guarded the download `currentRequestChunkIndex` reset on abort/error so concurrent chunks stay correctly bound (previously only the upload path was guarded).
+- Deferred the `saveFile` object-URL revoke so downloads are not canceled before the browser reads the blob.
+- Removed the unused `createWorkPromise` helper. The `*.worker.ts` modules run hashing on the main thread; spawning real Web Workers is still a TODO.
+- Added tests for instant upload event order, ajax download completion ordering, retried chunk replacement, upload retry-on-timeout, `Emitter` subscribe/unsubscribe, the destroy teardown path, and the concurrent download index-reset guard.

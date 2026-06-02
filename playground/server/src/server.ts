@@ -144,7 +144,8 @@ async function handleUploadVerify(req: IncomingMessage, res: ServerResponse, sto
   const preHash = requireString(body.preHash, 'preHash')
   const chunkTotal = requirePositiveInteger(body.chunkTotal, 'chunkTotal')
   const chunks = await getUploadedChunks(storageDir, preHash)
-  // 完整且连续的 index 集合表示可秒传；否则只返回可安全复用的分片 hash。
+  // A complete, contiguous index set means instant upload; otherwise return only
+  // the chunk hashes that are safe to reuse.
   const completeChunks = getCompleteUploadChunks(chunks, chunkTotal)
   const data = completeChunks ? true : getResumableUploadChunks(chunks, chunkTotal)
 
@@ -173,7 +174,8 @@ async function handleUploadChunk(req: IncomingMessage, res: ServerResponse, stor
 
   const dir = getUploadDir(storageDir, preHash)
   await mkdir(dir, { recursive: true })
-  // 重试可能用新 hash 发送同一 index，服务端只保留每个 index 的当前分片。
+  // A retry may resend the same index with a new hash; the server keeps only the
+  // current chunk for each index.
   await removeUploadedChunkIndex(dir, index)
   await writeFile(
     join(dir, getChunkFilename(index, chunkHash)),
@@ -213,7 +215,7 @@ async function handleUploadMerge(req: IncomingMessage, res: ServerResponse, stor
   const completeChunks = getCompleteUploadChunks(chunks, chunkTotal)
 
   if (!chunks.length) throw new HttpError(404, 'No uploaded chunks found')
-  // 只在 0..chunkTotal-1 每个 index 都存在且只存在一次时合并。
+  // Merge only when every index in 0..chunkTotal-1 exists exactly once.
   if (!completeChunks) {
     const { duplicateIndexes, missingIndexes } = getUploadChunkIssues(chunks, chunkTotal)
     const messages = []
@@ -401,7 +403,7 @@ function getCompleteUploadChunks(
   const { duplicateIndexes, missingIndexes } = getUploadChunkIssues(chunks, chunkTotal)
   if (duplicateIndexes.length || missingIndexes.length) return null
 
-  // 按合并顺序返回，不依赖文件系统读取顺序。
+  // Return in merge order; do not depend on the filesystem read order.
   const chunksByIndex = new Map(chunks.map((chunk) => [chunk.index, chunk]))
   return Array.from({ length: chunkTotal }, (_, index) => chunksByIndex.get(index)!)
 }
@@ -456,7 +458,8 @@ async function readFormData(req: IncomingMessage): Promise<MultipartForm> {
   const boundary = boundaryMatch?.[1] || boundaryMatch?.[2]
   if (!boundary) throw new HttpError(400, 'Missing multipart boundary')
 
-  // playground 不引入 multipart 依赖；latin1 可在拆 headers 时保留二进制字节值。
+  // The playground avoids a multipart dependency; latin1 preserves raw byte
+  // values while splitting headers.
   const body = (await readBodyBuffer(req)).toString('latin1')
   const form: MultipartForm = new Map()
 
@@ -506,7 +509,7 @@ function parseRange(rangeHeader: string | string[] | undefined, fileSize: number
   const match = String(rangeHeader).match(/^bytes=(\d*)-(\d*)$/)
   if (!match) return { unsatisfiable: true }
 
-  // 支持普通 Range 和 `bytes=-1024` 这类 suffix range。
+  // Support normal ranges and suffix ranges like `bytes=-1024`.
   let start = match[1] === '' ? 0 : Number(match[1])
   let end = match[2] === '' ? fileSize - 1 : Number(match[2])
   if (match[1] === '' && match[2] !== '') {
