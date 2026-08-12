@@ -1,3 +1,5 @@
+
+
 # slice-upload-utils
 
 [![NPM version](https://img.shields.io/npm/v/slice-upload-utils?color=a1b858&label=)](https://www.npmjs.com/package/slice-upload-utils)
@@ -44,10 +46,12 @@ Current versions use SHA-256 instead of MD5. If you are upgrading from an older 
 pnpm dev
 ```
 
-`pnpm dev` starts both:
+`pnpm dev` starts both in parallel:
 
 - Vue example app: `playground/vue`
 - Local upload/download server: `playground/server`
+
+You can also run them individually with `pnpm dev:vue` and `pnpm dev:server`.
 
 The Vue example accesses `/api` through the Vite proxy. The server runs at `http://127.0.0.1:10010`.
 
