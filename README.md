@@ -1,5 +1,7 @@
 # slice-upload-utils
 
+Chunked large-file upload and sliced download with resumable upload, instant upload, pause/cancel, and Vue / React hooks.
+
 [![NPM version](https://img.shields.io/npm/v/slice-upload-utils?color=a1b858&label=)](https://www.npmjs.com/package/slice-upload-utils)
 
 English | [简体中文](./README.zh-CN.md)
@@ -10,7 +12,7 @@ English | [简体中文](./README.zh-CN.md)
 
 ## Introduction
 
-`slice-upload-utils` provides large-file sliced upload, sliced download, resumable upload, instant upload, pause, cancel, and Vue / React hooks.
+`slice-upload-utils` is a TypeScript library for large-file chunked upload and sliced download. It supports resumable upload, instant upload, pause, cancel, and Vue / React hooks.
 
 On upload, files are split into chunks and assigned a `preHash` and `chunkHash`. Hashes use SHA-256: small payloads prefer the browser-native Web Crypto API, while `@noble/hashes` provides the ESM fallback and incremental large-file path. By default, the library uses sampled hashes, which fit most business scenarios. Enable `realPreHash` or `realChunkHash` when strict verification is required, at the cost of more hashing time.
 
