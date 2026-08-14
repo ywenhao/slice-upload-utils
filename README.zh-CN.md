@@ -1,5 +1,7 @@
 # slice-upload-utils
 
+大文件分片上传、分片下载、断点续传、秒传，支持暂停/取消，以及 Vue / React hooks。
+
 [![NPM version](https://img.shields.io/npm/v/slice-upload-utils?color=a1b858&label=)](https://www.npmjs.com/package/slice-upload-utils)
 
 [English](./README.md) | 简体中文
@@ -10,7 +12,7 @@
 
 ## 介绍
 
-`slice-upload-utils` 提供大文件分片上传、分片下载、断点续传、秒传、暂停、取消，以及 Vue / React hooks。
+`slice-upload-utils` 是一个 TypeScript 大文件分片上传 / 分片下载库，支持断点续传、秒传、暂停、取消，以及 Vue / React hooks。适合浏览器端大文件上传下载。
 
 上传侧会先把文件切片并计算 `preHash`、`chunkHash`。hash 使用 SHA-256：小体积内容优先使用浏览器原生 Web Crypto API，`@noble/hashes` 作为 ESM 兜底并负责大文件增量计算。默认使用抽样 hash，适合大多数业务；需要严格校验时可以开启 `realPreHash` 或 `realChunkHash`，代价是更长的计算时间。
 
